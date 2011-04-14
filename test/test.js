@@ -18,7 +18,7 @@ test('result', 'setting up test');
 
 
 /* random flagment test */
-var dna = SVGenerator.getRandomFlagment(1000);
+var dna = SVConst.getRandomFlagment(1000);
 var T = dna.length - dna.split('T').join('').length;
 var C = dna.length - dna.split('C').join('').length;
 var A = dna.length - dna.split('A').join('').length;
@@ -51,6 +51,11 @@ test('equal', getChar(3000*50,1), 'o', 'unexpected position value');
 test('result', 'pos2index test');
 
 /* idx2pos test */
+console.log( svgen.idx2pos(1));
+console.log( svgen.idx2pos(6));
+console.log( svgen.idx2pos(7));
+console.log( svgen.idx2pos(8));
+
 test('equal', svgen.idx2pos(1), 0, 'idx2pos failed');
 test('equal', svgen.idx2pos(6), 0, 'idx2pos failed');
 test('equal', svgen.idx2pos(7), 1, 'idx2pos failed');
@@ -155,30 +160,29 @@ test('result', 'GenomeStream test');
 mock.result = '';
 
 
-/* SVStream test */
-/* unit test */
-var result = SVGenerator.SVStream.complStrand('atgcATGC\nNnAATT');
+/* SV test */
+var result = SVConst.complStrand('atgcATGC\nNnAATT');
 
 test('equal', result, 'tacgTACG\nNnTTAA', 'SVStream.complStrand: invalid output .');
 
-var result = SVGenerator.SVStream.makeDeletion({start: 3, end: 9}, 'atgcATGCAATTGGCC', 0);
+var result = SVConst.makeDeletion({start: 3, end: 9}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'atgATTGGCC', 'SVStream.makeDeletion: invalid output .');
 
-var result = SVGenerator.SVStream.makeInsertion({start: 2, end: 6, flagment: 'TTTT'}, 'atgcATGCAATTGGCC', 0);
+var result = SVConst.makeInsertion({start: 2, end: 6, flagment: 'TTTT'}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'atTTTTgcATGCAATTGGCC', 'SVStream.makeInsertion: invalid output .');
 
-var result = SVGenerator.SVStream.makeInversion({start: 0, end: 4}, 'atgcATGCAATTGGCC', 0);
+var result = SVConst.makeInversion({start: 0, end: 4}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'gcatATGCAATTGGCC', 'SVStream.makeInsertion: invalid output .');
 
 
 /* more complicated offset and length */
-var result = SVGenerator.SVStream.makeInversion(
+var result = SVConst.makeInversion(
   {start: 2, end: 6}, 'AACcCcTTTTGGG', 0
 );
 test('equal', result, 'AAgGgGTTTTGGG', 'SVStream.makeInsertion: invalid output .');
 test('result', 'SVStream static function test');
 
-var result = SVGenerator.SVStream.makeInversion(
+var result = SVConst.makeInversion(
   {start: 4002, end: 4006}, 'AACcCcTTTTGGG', 4000
 );
 test('equal', result, 'AAgGgGTTTTGGG', 'SVStream.makeInsertion: invalid output .');

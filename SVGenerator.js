@@ -1,4 +1,6 @@
 var SVConst = require('./SVConst');
+
+/* constructor */
 function gen(op) {
   op = op || {};
   this.path = op.path || '';
@@ -26,55 +28,23 @@ function gen(op) {
   this.svs = [];
 }
 
+/* class variables */
 gen.error = function(v) {
   process.stderr.write(v+"\n");
 }
 
 gen.GenomeStream = require('./GenomeStream');
 gen.SVStream = require('./SVStream');
+gen.SVConst = SVConst;
 
-/* static functions */
-/* get random DNA flagment */
-gen.getRandomFlagment = function(len) {
-  var flagment = '';
-  for (var i=0; i<len; i++) {
-    var p = Math.random();
-    if (p > 0.75) {
-      flagment += 'A';
-    }
-    else if (p > 0.5) {
-      flagment += 'G';
-    }
-    else if (p > 0.25) {
-      flagment += 'T';
-    }
-    else {
-      flagment += 'C';
-    }
-  }
-  return flagment;
-}
-
-gen.idx2pos = function(idx, prelen, linelen) {
-  prelen = prelen || 0;
-  linelen = linelen || 50;
-  return Math.max(0, idx - prelen + 1 - Math.floor((idx - prelen + 1)/(linelen + 1)));
-}
-
-
-gen.pos2index = function(pos, prelen, linelen) {
-  prelen = prelen || 0;
-  linelen = linelen || 50;
-  return prelen + pos -1 + Math.floor( (pos -1)/linelen );
-}
 
 /* pos : Nth base -> character index (leftside index of the base)*/
 gen.prototype.pos2index = function(pos) {
-  return gen.pos2index(pos, this.prelen, this.linelen);
+  return SVConst.pos2index(pos, this.prelen, this.linelen);
 }
 
 gen.prototype.idx2pos = function(idx) {
-  return gen.idx2pos(idx, this.prelen, this.linelen);
+  return SVConst.idx2pos(idx, this.prelen, this.linelen);
 }
 
 
@@ -141,10 +111,10 @@ gen.prototype.registerDel= function(start, len) { this.registerSV(SVConst.DEL, s
  */
 gen.prototype.registerIns= function(start, len, flagment) {
   if (!flagment) {
-    flagment = gen.getRandomFlagment(len);
+    flagment = SVConst.getRandomFlagment(len);
   }
   else if (flagment.length < len) {
-    flagment += gen.getRandomFlagment(len - flagment.length);
+    flagment += SVConst.getRandomFlagment(len - flagment.length);
   }
   else if (flagment.length > len) {
     flagment = flagment.slice(0, len);

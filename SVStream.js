@@ -67,13 +67,13 @@ SVStream.prototype.makeSV = function(sv, chunk, end) {
       // 1122      40960 (e.g.)
     switch (sv.type) {
     case SVConst.DEL:
-      this.nextream.write(SVStream.makeDeletion(sv, str, this.pos));
+      this.nextream.write(SVConst.makeDeletion(sv, str, this.pos));
       break;
     case SVConst.INS:
-      this.nextream.write(SVStream.makeInsertion(sv, str, this.pos));
+      this.nextream.write(SVConst.makeInsertion(sv, str, this.pos));
       break;
     case SVConst.INV:
-      this.nextream.write(SVStream.makeInversion(sv, str, this.pos));
+      this.nextream.write(SVConst.makeInversion(sv, str, this.pos));
       break;
     default:
       // err
@@ -86,60 +86,6 @@ SVStream.prototype.makeSV = function(sv, chunk, end) {
   }
   this.remnant = chunk;
 }
-
-/* static functions */
-SVStream.makeDeletion = function(sv, str, pos) {
-  return str.slice(0, sv.start - pos) + str.slice(sv.end - pos);
-}
-
-SVStream.makeInsertion = function(sv, str, pos) {
-  return str.slice(0, sv.start - pos) + sv.flagment + str.slice(sv.start - pos);
-}
-
-SVStream.makeInversion = function(sv, str, pos) {
-  return str.slice(0, sv.start - pos) + 
-  SVStream.complStrand(str.slice(sv.start-pos, sv.end-pos)).split('').reverse().join('') + 
-  str.slice(sv.end - pos);
-}
-
-SVStream.complStrand = function(str) {
-  var ret = [];
-  var i = 0;
-  str.split('').forEach(function(c) {
-    switch (c) {
-      case 'a':
-        ret[i] = 't';
-        break;
-      case 'A':
-        ret[i] = 'T';
-        break;
-      case 't':
-        ret[i] = 'a';
-        break;
-      case 'T':
-        ret[i] = 'A';
-        break;
-      case 'c':
-        ret[i] = 'g';
-        break;
-      case 'C':
-        ret[i] = 'G';
-        break;
-      case 'g':
-        ret[i] = 'c';
-        break;
-      case 'G':
-        ret[i] = 'C';
-        break;
-      default:
-        ret[i] = c;
-        break;
-    }
-    i++;
-  });
-  return ret.join('');
-}
-
 
 
 /* exports */
