@@ -50,6 +50,18 @@ test('equal', getChar(105143,1), 'h', 'unexpected position value');
 test('equal', getChar(3000*50,1), 'o', 'unexpected position value');
 test('result', 'pos2index test');
 
+/* idx2pos test */
+test('equal', svgen.idx2pos(1), 0, 'idx2pos failed');
+test('equal', svgen.idx2pos(6), 0, 'idx2pos failed');
+test('equal', svgen.idx2pos(7), 1, 'idx2pos failed');
+test('equal', svgen.idx2pos(8), 2, 'idx2pos failed');
+test('equal', svgen.idx2pos(55), 49, 'idx2pos failed');
+test('equal', svgen.idx2pos(56), 50, 'idx2pos failed');
+test('equal', svgen.idx2pos(57), 50, 'idx2pos failed');
+test('equal', svgen.idx2pos(58), 51, 'idx2pos failed');
+test('equal', svgen.idx2pos(59), 52, 'idx2pos failed');
+
+test('result', 'idx2pos test');
 
 /* registerSV test */
 svgen.registerSV('DEL', 100000, 200);

@@ -13,6 +13,11 @@ function gen(op) {
     this.pos2index = op.pos2index;
   }
 
+  if (typeof op.idx2pos == 'function') {
+    this.idx2pos = op.idx2pos;
+  }
+
+ 
   this.prelen = ('>' + this.chrom + '\n').length;
 
   this.linelen = op.linelen || 50;
@@ -50,9 +55,26 @@ gen.getRandomFlagment = function(len) {
   return flagment;
 }
 
+gen.idx2pos = function(idx, prelen, linelen) {
+  prelen = prelen || 0;
+  linelen = linelen || 50;
+  return Math.max(0, idx - prelen + 1 - Math.floor((idx - prelen + 1)/(linelen + 1)));
+}
+
+
+gen.pos2index = function(pos, prelen, linelen) {
+  prelen = prelen || 0;
+  linelen = linelen || 50;
+  return prelen + pos -1 + Math.floor( (pos -1)/linelen );
+}
+
 /* pos : Nth base -> character index (leftside index of the base)*/
 gen.prototype.pos2index = function(pos) {
-  return this.prelen + pos -1 + Math.floor( (pos -1)/this.linelen );
+  return gen.pos2index(pos, this.prelen, this.linelen);
+}
+
+gen.prototype.idx2pos = function(idx) {
+  return gen.idx2pos(idx, this.prelen, this.linelen);
 }
 
 
