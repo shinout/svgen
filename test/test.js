@@ -1,7 +1,8 @@
 var SVGenerator = require('../SVGenerator');
-var SVConst = require('../SVConst');
-var test = require('./shinout.test');
-var fs = require('fs');
+var SVConst     = require('../SVConst');
+var test        = require('./shinout.test');
+var fs          = require('fs');
+var dna         = require('../lib/dna');
 
 var errs = [];
 SVGenerator.error = function(v) {
@@ -9,64 +10,34 @@ SVGenerator.error = function(v) {
   errs.push(v);
 }
 
-/* setting up test */
+/* lib/dna test */
 var svgen = new SVGenerator();
 var e = errs.shift();
 test('ok', e.match(/such file/), 'No error occurred when no file designated.');
-test('equal', svgen.chrom, 'chr1', 'default chrom name error');
 test('result', 'setting up test');
 
 
 /* random flagment test */
-var dna = SVConst.getRandomFlagment(1000);
-var T = dna.length - dna.split('T').join('').length;
-var C = dna.length - dna.split('C').join('').length;
-var A = dna.length - dna.split('A').join('').length;
-var G = dna.length - dna.split('G').join('').length;
+var DNA = dna.getRandomFlagment(1000);
+var T   = DNA.length - DNA.split('T').join('').length;
+var C   = DNA.length - DNA.split('C').join('').length;
+var A   = DNA.length - DNA.split('A').join('').length;
+var G   = DNA.length - DNA.split('G').join('').length;
 
-console.log( Math.max(T,C,A,G) / Math.min(T,C,A,G));
-test('equal', dna.length, 1000, 'invalid length of random flagment'); 
+//console.log( Math.max(T,C,A,G) / Math.min(T,C,A,G));
+test('equal', DNA.length, 1000, 'invalid length of random flagment'); 
 test('equal', T + C + A + G, 1000, 'invalid character of random flagment'); 
 test('ok', Math.max(T,C,A,G) / Math.min(T,C,A,G) < 1.5, 'invalid deviation of random flagment'); 
 test('result', 'random flagment test');
 
-/* pos2index test */
+var result = dna.complStrand('atgcATGC\nNnAATT');
+test('equal', result, 'tacgTACG\nNnTTAA', 'SVStream.complStrand: invalid output .');
+
 var svgen = new SVGenerator({
-  //path : __dirname + '/../../../data/references/chr11.fa',
-  path : __dirname + '/long.fa',
-  chrom: 'chr11'
+  path : __dirname + '/long.fa'
 });
 
-function getChar(pos, len) {
-  var idx = svgen.pos2index(pos);
-  var fd = fs.openSync(svgen.path, 'r');
-  var ret = fs.readSync(fd, len, idx)[0];
-  fs.closeSync(fd);
-  return ret;
-}
-test('equal', getChar(3,8), '34567890', 'unexpected position value');
-test('equal', getChar(103,8), '34567890', 'unexpected position value');
-test('equal', getChar(105143,1), 'h', 'unexpected position value');
-test('equal', getChar(3000*50,1), 'o', 'unexpected position value');
-test('result', 'pos2index test');
-
-/* idx2pos test */
-console.log( svgen.idx2pos(1));
-console.log( svgen.idx2pos(6));
-console.log( svgen.idx2pos(7));
-console.log( svgen.idx2pos(8));
-
-test('equal', svgen.idx2pos(1), 0, 'idx2pos failed');
-test('equal', svgen.idx2pos(6), 0, 'idx2pos failed');
-test('equal', svgen.idx2pos(7), 1, 'idx2pos failed');
-test('equal', svgen.idx2pos(8), 2, 'idx2pos failed');
-test('equal', svgen.idx2pos(55), 49, 'idx2pos failed');
-test('equal', svgen.idx2pos(56), 50, 'idx2pos failed');
-test('equal', svgen.idx2pos(57), 50, 'idx2pos failed');
-test('equal', svgen.idx2pos(58), 51, 'idx2pos failed');
-test('equal', svgen.idx2pos(59), 52, 'idx2pos failed');
-
-test('result', 'idx2pos test');
+test('equal', svgen.chrom, 'chr11', 'refname auto detection error');
 
 /* registerSV test */
 svgen.registerSV('DEL', 100000, 200);
@@ -92,6 +63,7 @@ test('ok', e && e.match(/length/), 'No error occurred when zero is given to leng
 
 svgen.registerDel(1, 200);
 test('equal', svgen.svs.length, 1, 'Deletion event didn\'t registered.');
+console.log(svgen.svs[0]);
 test('equal', svgen.svs[0].start , 7, 'invalid coordinate.');
 test('equal', svgen.svs[0].end , 200 + 7 - 1 + 3 + 1, 'invalid coordinate.');
 
@@ -107,6 +79,10 @@ svgen.registerIns(200, 90);
 var e = errs.shift();
 test('ok', e && e.match(/duplicated/), 'No error occurred when duplicated region is given.');
 
+svgen.registerIns(11111200, 290);
+var e = errs.shift();
+test('ok', e && e.match(/range/), 'No error occurred when out of range is given.');
+
 svgen.registerIns(201, 90);
 test('equal', svgen.svs.length, 2, 'Insertion event didn\'t registered.');
 test('equal', svgen.svs[1].flagment.length, 90, 'invalid flagment length in registerIns');
@@ -121,18 +97,18 @@ test('equal', svgen.svs.length, 4, 'Insertion event didn\'t registered.');
 test('equal', svgen.svs[3].flagment.length, 10, 'invalid flagment length in registerIns');
 test('equal', svgen.svs[3].flagment, 'TTTTTTTTTT', 'invalid flagment in registerIns');
 
-svgen.registerInv(130130877, 404);
+svgen.registerInv(20877, 404);
 test('equal', svgen.svs.length, 5, 'Inversion event didn\'t registered.');
 
-svgen.registerDel(130130900, 356);
+svgen.registerDel(20900, 356);
 var e = errs.shift();
 test('ok', e && e.match(/duplicated/), 'No error occurred when duplicated region is given.');
 
-svgen.registerDel(130130522, 355);
+svgen.registerDel(20522, 355);
 var e = errs.shift();
 test('ok', e && e.match(/duplicated/), 'No error occurred when duplicated region is given.');
 
-svgen.registerDel(130130521, 355);
+svgen.registerDel(20521, 355);
 test('equal', svgen.svs.length, 6, 'Deletion event didn\'t registered.');
 
 test('result', 'registerSV test');
@@ -161,10 +137,6 @@ mock.result = '';
 
 
 /* SV test */
-var result = SVConst.complStrand('atgcATGC\nNnAATT');
-
-test('equal', result, 'tacgTACG\nNnTTAA', 'SVStream.complStrand: invalid output .');
-
 var result = SVConst.makeDeletion({start: 3, end: 9}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'atgATTGGCC', 'SVStream.makeDeletion: invalid output .');
 

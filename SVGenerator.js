@@ -1,4 +1,6 @@
-var SVConst = require('./SVConst');
+var SVConst     = require('./SVConst');
+var FASTAReader = require('./lib/FASTAReader/FASTAReader');
+var dna         = require('./lib/dna');
 
 /* constructor */
 function gen(op) {
@@ -7,45 +9,45 @@ function gen(op) {
 
   if (!require('path').existsSync(this.path)) {
     gen.error('"'+this.path + '": No such file.');
+    return;
   }
 
-  this.chrom = op.chrom || 'chr1';
+  this.fastas = new FASTAReader(this.path);
 
-  if (typeof op.pos2index == 'function') {
-    this.pos2index = op.pos2index;
+  try {
+    this.chrom = op.chrom || Object.keys(this.fastas.result)[0];
+  }
+  catch (e){
+    console.log(e);
+    gen.error(this.path + 'does not seem to be FASTA format.');
+    return;
   }
 
-  if (typeof op.idx2pos == 'function') {
-    this.idx2pos = op.idx2pos;
+  if (! this.fastas.result[this.chrom]) {
+    gen.error('"'+this.chrom+ '" is not found in ' + this.path);
+    return;
   }
 
- 
-  this.prelen = ('>' + this.chrom + '\n').length;
-
-  this.linelen = op.linelen || 50;
+  this.fasta      = this.fastas.result[this.chrom];
+  this.prelen     = this.fasta.idlen();
+  this.linelen    = this.fasta.linelen;
   this.bufferSize = op.bufferSize || 40960;
-
-  this.svs = [];
+  this.startIdx   = this.fasta.getStartIndex();
+  this.endIdx     = this.fasta.getEndIndex();
+  this.svs        = [];
 }
 
 /* class variables */
 gen.error = function(v) {
   process.stderr.write(v+"\n");
+  //process.exit();
 }
 
 gen.GenomeStream = require('./GenomeStream');
-gen.SVStream = require('./SVStream');
-gen.SVConst = SVConst;
-
-
-/* pos : Nth base -> character index (leftside index of the base)*/
-gen.prototype.pos2index = function(pos) {
-  return SVConst.pos2index(pos, this.prelen, this.linelen);
-}
-
-gen.prototype.idx2pos = function(idx) {
-  return SVConst.idx2pos(idx, this.prelen, this.linelen);
-}
+gen.SVStream     = require('./SVStream');
+gen.dna          = dna;
+gen.FASTAReader  = FASTAReader;
+gen.SVConst      = SVConst;
 
 
 gen.prototype.checkDuplication = function(idxStart, idxEnd) {
@@ -79,10 +81,22 @@ gen.prototype.registerSV= function(type, start, len, op) {
     gen.error('SV['+SVConst.types[type]+']: length must be positive.');
     return;
   }
-  /* check duplication */
-  var idxStart = this.pos2index(start);
-  var idxEnd   = this.pos2index(start + len -1) + 1; // the last "+ 1" means "right side index"
 
+  var idxStart = this.fasta.getIndex(start);
+  var idxEnd   = this.fasta.getIndex(start + len-1) + 1;
+
+  /* check range */
+  if (idxStart < this.startIdx || this.endIdx < idxStart) {
+    gen.error('SV['+SVConst.types[type]+']: position of '+start+' is out of range.');
+    return;
+  }
+  if (idxEnd < this.startIdx || this.endIdx < idxEnd) {
+    gen.error('SV['+SVConst.types[type]+']: position of '+start+' with length('+len+') is out of range.');
+    return;
+  }
+
+
+  /* check duplication */
   if (this.checkDuplication(idxStart, idxEnd)) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' is duplicated.');
     return;
@@ -111,10 +125,10 @@ gen.prototype.registerDel= function(start, len) { this.registerSV(SVConst.DEL, s
  */
 gen.prototype.registerIns= function(start, len, flagment) {
   if (!flagment) {
-    flagment = SVConst.getRandomFlagment(len);
+    flagment = dna.getRandomFlagment(len);
   }
   else if (flagment.length < len) {
-    flagment += SVConst.getRandomFlagment(len - flagment.length);
+    flagment += dna.getRandomFlagment(len - flagment.length);
   }
   else if (flagment.length > len) {
     flagment = flagment.slice(0, len);
@@ -123,10 +137,15 @@ gen.prototype.registerIns= function(start, len, flagment) {
 }
 gen.prototype.registerInv= function(start, len) { this.registerSV(SVConst.INV, start, len); }
 
+
+/**
+ * get sv fasta
+ *
+ */
 gen.prototype.genotype = function() {
   var genStream = new gen.GenomeStream({prelen: this.prelen});
-  var svStream = new gen.SVStream({nextream: genStream, svs: this.svs});
-  var options = {
+  var svStream  = new gen.SVStream({nextream: genStream, svs: this.svs});
+  var options   = {
     flags: 'r',
     encoding: 'utf-8',
     bufferSize: this.bufferSize

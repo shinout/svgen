@@ -1,0 +1,3 @@
+[submodule "lib/FASTAReader"]
+	path = lib/FASTAReader
+	url = github:shinout/FASTAReader.git
