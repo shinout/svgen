@@ -3,6 +3,7 @@ const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
 const AP          = require('argparser');
 const LS          = require('linestream');
+const fs          = require('fs');
 
 /*
  * node SVGenerator.js
@@ -33,11 +34,6 @@ function main() {
     process.exit();
   }
 
-  if (! require('path').existsSync(tsv)) {
-    gen.error(tsv + ': No such file.');
-    process.exit();
-  }
-
   var fastafile = p.getArgs(1);
   if (!fastafile) {
     showUsage();
@@ -55,24 +51,13 @@ function main() {
   if (!svgen.valid) {
     process.exit();
   }
-  var tsvdata = '';
-  var lstream = new LS(tsv, {trim: true});
 
-  lstream.on('data', function(line) {
-    if (!line || line.charAt(0) == '#') return;
-    var svinfo = line.split('\t');
-    var svtype = SVConst[svinfo[0]];
-    svgen.registerSV(svtype, svinfo[1], svinfo[2]);
-  });
+  var tsvresult = svgen.registerSVFromTSVFile(tsv);
+  if (!tsvresult) process.exit();
 
-  lstream.on('end', function() {
-    if (svgen.svs.length == 0) {
-      gen.error(tsv + ': SV information is empty or invalid type.');
-      process.exit();
-    }
-    svgen.genotype();
-  });
+  svgen.genotype();
 }
+
 
 
 /*
@@ -151,23 +136,24 @@ gen.prototype.checkDuplication = function(idxStart, idxEnd) {
 /**
  * register SV of the given type
  * (internal)
+ * @return {Boolean} : succeed or not
  */
 gen.prototype.registerSV= function(type, start, len, op) {
   start = Number(start);
   len   = Number(len);
   if (typeof type != 'number' ||  type > SVConst.types.length || type < 0) {
     gen.error('SV type error. type must be adequate Number.');
-    return;
+    return false;
   }
 
   if (start <= 0) {
     gen.error('SV['+SVConst.types[type]+']: start must be positive.');
-    return;
+    return false;
   }
 
   if (len <= 0) {
     gen.error('SV['+SVConst.types[type]+']: length must be positive.');
-    return;
+    return false;
   }
 
   var idxStart = this.fasta.getIndex(start);
@@ -176,18 +162,18 @@ gen.prototype.registerSV= function(type, start, len, op) {
   /* check range */
   if (idxStart < this.startIdx || this.endIdx < idxStart) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' is out of range.');
-    return;
+    return false;
   }
   if (idxEnd < this.startIdx || this.endIdx < idxEnd) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' with length('+len+') is out of range.');
-    return;
+    return false;
   }
 
 
   /* check duplication */
   if (this.checkDuplication(idxStart, idxEnd)) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' is duplicated.');
-    return;
+    return false;
   }
   var svdata = { type: type, start: idxStart, end: idxEnd, pos: start, len: len};
   if (typeof op == "object") {
@@ -201,6 +187,7 @@ gen.prototype.registerSV= function(type, start, len, op) {
   this.svs.sort(function(a,b){
     return (a.start > b.start) ? 1 : -1;
   });
+  return true;
 }
 
 /**
@@ -243,6 +230,33 @@ gen.prototype.registerInv= function(start, len) { this.registerSV(SVConst.INV, s
 
 
 /**
+ * register SV from TSV data
+ *
+ * @param tsv        : tsv file name
+ * @return {Boolean} : succeed or not
+ */
+gen.prototype.registerSVFromTSVFile = function(tsv) {
+  if (! require('path').existsSync(tsv)) {
+    gen.error(tsv + ': No such file.');
+    return false;
+  }
+
+  var lines = fs.readFileSync(tsv, 'utf-8').split('\n');
+  var ret = false;
+  lines.forEach(function(line) {
+    console.log(line);
+    if (!line || line.charAt(0) == '#') return;
+    var svinfo = line.split('\t');
+    var svtype = SVConst[svinfo[0]];
+    var result = this.registerSV(svtype, svinfo[1], svinfo[2]);
+    ret = (result || ret);
+  }, this);
+
+  return ret;
+}
+
+
+/**
  * get sv fasta to stdout.
  */
 gen.prototype.genotype = function(wstream, dryrun) {
@@ -271,7 +285,7 @@ gen.prototype.genotype = function(wstream, dryrun) {
   })(this.svs, this.startIdx);
   if (dryrun) return {svs: svs, options: options};
 
-  var rstream = require('fs').createReadStream(this.path, options);
+  var rstream = fs.createReadStream(this.path, options);
 
   var out;
 

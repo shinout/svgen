@@ -115,7 +115,6 @@ test('equal', svgen.svs.length, 6, 'Deletion event didn\'t registered.');
 
 // sort check
 
-test('result', 'registerSV test');
 var svgen = new SVGenerator({
   path    : __dirname + '/long.fa',
   chrom   : 'test_reference',
@@ -137,12 +136,16 @@ test('equal', svgen.svs[3].pos, 1500, 'invalid order');
 test('equal', svgen.svs[4].pos, 2200, 'invalid order');
 test('equal', svgen.svs[5].pos, 12200, 'invalid order');
 
+
+
+
 /* coordinate test */
 var svgen = new SVGenerator({
   path    : __dirname + '/long.fa',
   chrom   : 'test_reference',
   svchrom : 'sv_test'
 });
+
 
 test('equal', svgen.prelen, 'test_reference'.length + 2, 'invalid prelen.');
 // lines * linelen + idlen + blank + idlen2
@@ -163,6 +166,40 @@ test('equal', svgen.svs[2].end, svgen.startIdx + 100 + 52 + 2, 'invalid end of r
 svgen.registerInv(222, 50);
 test('equal', svgen.svs[3].start, svgen.startIdx + 221 +4, 'invalid start of registered inversion.');
 test('equal', svgen.svs[3].end, svgen.startIdx + 221 + 4 + 51, 'invalid end of registered inversion.');
+
+test('result', 'registerSV test');
+
+/* register from TSV file test */
+var svgen = new SVGenerator({
+  path    : __dirname + '/long.fa',
+  chrom   : 'test_reference',
+  svchrom : 'sv_test'
+});
+var bool = svgen.registerSVFromTSVFile(__dirname + '/error.tsv')
+test('ok', !bool, 'error.tsv registered incorrectly.');
+
+var bool = svgen.registerSVFromTSVFile(__dirname + '/one_ok.tsv')
+test('equal', svgen.svs.length, 1, 'one_ok.tsv registered incorrectly.');
+test('ok', bool, 'one_ok.tsv registered incorrectly.');
+
+var bool = svgen.registerSVFromTSVFile(__dirname + '/sample.tsv')
+console.log(svgen.svs);
+test('equal', svgen.svs.length, 20+1 -1 -1 - 11, 'sample.tsv did not registered correctly.');
+// one duplication with one_ok and one dupe with itself and 11 out of range
+test('ok', bool, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[0].type, SVConst.DEL, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[0].pos, 3385, 'sample.tsv did not registered correctly.');
+
+test('equal', svgen.svs[1].type, SVConst.INS, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[1].pos, 4912, 'sample.tsv did not registered correctly.');
+
+test('equal', svgen.svs[2].type, SVConst.INV, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[2].pos, 5912, 'sample.tsv did not registered correctly.');
+
+test('result', 'register sv from tsv test');
+process.exit();
+
+
 
 
 /* SVConst test */
