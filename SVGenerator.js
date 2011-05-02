@@ -22,11 +22,11 @@ const fs          = require('fs');
  */
 function main() {
   function showUsage() {
-    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + '[-c|--chrom <chrom name>] <tsv file> <fasta file>');
+    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + '[-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
     gen.error('tsv file columns: SVtype(DEL|INS|INV)\tstart-position\tlength');
   }
 
-  var p = new AP().addValueOptions(['chrom', 'c', 'svchrom', 's']).parse();
+  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).parse();
 
   var tsv = p.getArgs(0);
   if (!tsv) {
@@ -45,7 +45,7 @@ function main() {
   }
 
   var chrom   = p.getOptions('chrom') || p.getOptions('c');
-  var svchrom = p.getOptions('svchrom') || p.getOptions('s') || chrom;
+  var svchrom = p.getOptions('name') || p.getOptions('n') || chrom;
 
   var svgen   = new gen({path: fastafile, chrom: chrom, svchrom: svchrom});
   if (!svgen.valid) {
@@ -197,7 +197,7 @@ gen.prototype.registerSV= function(type, start, len, op) {
  * @param length : deletion length
  */
 
-gen.prototype.registerDel= function(start, len) { this.registerSV(SVConst.DEL, start, len); }
+gen.prototype.registerDel= function(start, len) { return this.registerSV(SVConst.DEL, start, len); }
 
 
 /**
@@ -217,7 +217,7 @@ gen.prototype.registerIns= function(start, len, flagment) {
   else if (flagment.length > len) {
     flagment = flagment.slice(0, len);
   }
-  this.registerSV(SVConst.INS, start, len, {flagment: flagment}); 
+  return this.registerSV(SVConst.INS, start, len, {flagment: flagment}); 
 }
 
 /**
@@ -226,7 +226,7 @@ gen.prototype.registerIns= function(start, len, flagment) {
  * @param start  : base position (1-base start) left side will of which be inverted.
  * @param length : inversion length
  */
-gen.prototype.registerInv= function(start, len) { this.registerSV(SVConst.INV, start, len); }
+gen.prototype.registerInv= function(start, len) { return this.registerSV(SVConst.INV, start, len); }
 
 
 /**
@@ -244,11 +244,24 @@ gen.prototype.registerSVFromTSVFile = function(tsv) {
   var lines = fs.readFileSync(tsv, 'utf-8').split('\n');
   var ret = false;
   lines.forEach(function(line) {
-    console.log(line);
     if (!line || line.charAt(0) == '#') return;
     var svinfo = line.split('\t');
     var svtype = SVConst[svinfo[0]];
-    var result = this.registerSV(svtype, svinfo[1], svinfo[2]);
+    var result;
+    switch (svtype) {
+      case SVConst.DEL: 
+        result = this.registerDel(svinfo[1], svinfo[2]);
+        break;
+      case SVConst.INS: 
+        result = this.registerIns(svinfo[1], svinfo[2]);
+        break;
+      case SVConst.INV: 
+        result = this.registerInv(svinfo[1], svinfo[2]);
+        break;
+      default:
+        result = false;
+        break;
+    }
     ret = (result || ret);
   }, this);
 

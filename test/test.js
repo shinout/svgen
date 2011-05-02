@@ -64,7 +64,6 @@ test('ok', e && e.match(/length/), 'No error occurred when zero is given to leng
 
 svgen.registerDel(1, 200);
 test('equal', svgen.svs.length, 1, 'Deletion event didn\'t registered.');
-console.log(svgen.svs[0]);
 test('equal', svgen.svs[0].start , 7, 'invalid coordinate.');
 test('equal', svgen.svs[0].end , 200 + 7 - 1 + 3 + 1, 'invalid coordinate.');
 
@@ -183,7 +182,6 @@ test('equal', svgen.svs.length, 1, 'one_ok.tsv registered incorrectly.');
 test('ok', bool, 'one_ok.tsv registered incorrectly.');
 
 var bool = svgen.registerSVFromTSVFile(__dirname + '/sample.tsv')
-console.log(svgen.svs);
 test('equal', svgen.svs.length, 20+1 -1 -1 - 11, 'sample.tsv did not registered correctly.');
 // one duplication with one_ok and one dupe with itself and 11 out of range
 test('ok', bool, 'sample.tsv did not registered correctly.');
@@ -197,7 +195,6 @@ test('equal', svgen.svs[2].type, SVConst.INV, 'sample.tsv did not registered cor
 test('equal', svgen.svs[2].pos, 5912, 'sample.tsv did not registered correctly.');
 
 test('result', 'register sv from tsv test');
-process.exit();
 
 
 
