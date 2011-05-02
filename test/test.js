@@ -3,6 +3,7 @@ var SVConst     = require('../SVConst');
 var test        = require('./shinout.test');
 var fs          = require('fs');
 var dna         = require('../lib/dna');
+var EventEmitter = require('events').EventEmitter;
 
 var errs = [];
 SVGenerator.error = function(v) {
@@ -31,7 +32,7 @@ test('ok', Math.max(T,C,A,G) / Math.min(T,C,A,G) < 1.5, 'invalid deviation of ra
 test('result', 'random flagment test');
 
 var result = dna.complStrand('atgcATGC\nNnAATT');
-test('equal', result, 'tacgTACG\nNnTTAA', 'SVStream.complStrand: invalid output .');
+test('equal', result, 'tacgTACG\nNnTTAA', 'dna.complStrand: invalid output .');
 
 var svgen = new SVGenerator({
   path : __dirname + '/long.fa'
@@ -111,95 +112,267 @@ test('ok', e && e.match(/duplicated/), 'No error occurred when duplicated region
 svgen.registerDel(20521, 355);
 test('equal', svgen.svs.length, 6, 'Deletion event didn\'t registered.');
 
+
+// sort check
+
 test('result', 'registerSV test');
+var svgen = new SVGenerator({
+  path    : __dirname + '/long.fa',
+  chrom   : 'test_reference',
+  svchrom : 'sv_test'
+});
+
+svgen.registerDel(1500, 300);
+svgen.registerIns(500, 100);
+svgen.registerInv(100, 300);
+svgen.registerIns(12200, 1300);
+svgen.registerIns(2200, 3300);
+svgen.registerDel(2000, 300); // duplicated
+svgen.registerInv(1, 20);
+
+test('equal', svgen.svs[0].pos, 1, 'invalid order');
+test('equal', svgen.svs[1].pos, 100, 'invalid order');
+test('equal', svgen.svs[2].pos, 500, 'invalid order');
+test('equal', svgen.svs[3].pos, 1500, 'invalid order');
+test('equal', svgen.svs[4].pos, 2200, 'invalid order');
+test('equal', svgen.svs[5].pos, 12200, 'invalid order');
+
+/* coordinate test */
+var svgen = new SVGenerator({
+  path    : __dirname + '/long.fa',
+  chrom   : 'test_reference',
+  svchrom : 'sv_test'
+});
+
+test('equal', svgen.prelen, 'test_reference'.length + 2, 'invalid prelen.');
+// lines * linelen + idlen + blank + idlen2
+test('equal', svgen.startIdx, 3000 * 51 + 7 + 2 + svgen.prelen, 'invalid startIdx.');
+test('equal', 'A', fs.readFileSync(__dirname + '/long.fa').toString().substr(svgen.endIdx-2,1), 'invalid endIdx');
+svgen.registerDel(1, 20);
+test('equal', svgen.svs[0].start, svgen.startIdx, 'invalid index of registered deletion.');
+test('equal', svgen.svs[0].end, svgen.startIdx + 20, 'invalid index of registered deletion.');
+
+svgen.registerIns(51, 20);
+test('equal', svgen.svs[1].start, svgen.startIdx + 51, 'invalid start of registered insertion.');
+test('equal', svgen.svs[1].end, svgen.startIdx + 51 + 20, 'invalid end of registered insertion.');
+
+svgen.registerIns(100, 52);
+test('equal', svgen.svs[2].start, svgen.startIdx + 100, 'invalid start of registered insertion.');
+test('equal', svgen.svs[2].end, svgen.startIdx + 100 + 52 + 2, 'invalid end of registered insertion.');
+
+svgen.registerInv(222, 50);
+test('equal', svgen.svs[3].start, svgen.startIdx + 221 +4, 'invalid start of registered inversion.');
+test('equal', svgen.svs[3].end, svgen.startIdx + 221 + 4 + 51, 'invalid end of registered inversion.');
 
 
-/* GenomeStream test */
+/* SVConst test */
 
-var mock = {
-  result: '',
-  write: function(v) {
-    this.result+=v;
-  },
-  emit: function() {
-  }
-}
-
-var gs = new SVGenerator.GenomeStream({prelen: 7, nextream: mock});
-gs.write('>chr11\n'+(function(){var ret = "";var i = 0;while(i <1000) {ret +="a"+i+"\n"; i++;} return ret;})());
-gs.write('>chr11\n'+(function(){var ret = "";var i = 0;while(i <1000) {ret +="a"+i; i++;} return ret;})());
-gs.end();
-test('equal', mock.result.slice(0, 7), '>chr11\n', 'GenomeStream.write : invalid output .');
-test('ok', !mock.result.substr(7, 50).match(/\n/), 'GenomeStream.write : invalid output .');
-test('ok', mock.result.substr(7, 51).match(/\n/), 'GenomeStream.write : invalid output .');
-test('result', 'GenomeStream test');
-mock.result = '';
-
-
-/* SV test */
 var result = SVConst.makeDeletion({start: 3, end: 9}, 'atgcATGCAATTGGCC', 0);
-test('equal', result, 'atgATTGGCC', 'SVStream.makeDeletion: invalid output .');
+test('equal', result, 'atgATTGGCC', 'SVConst.makeDeletion: invalid output .');
 
 var result = SVConst.makeInsertion({start: 2, end: 6, flagment: 'TTTT'}, 'atgcATGCAATTGGCC', 0);
-test('equal', result, 'atTTTTgcATGCAATTGGCC', 'SVStream.makeInsertion: invalid output .');
+test('equal', result, 'atTTTTgcATGCAATTGGCC', 'SVConst.makeInsertion: invalid output .');
 
 var result = SVConst.makeInversion({start: 0, end: 4}, 'atgcATGCAATTGGCC', 0);
-test('equal', result, 'gcatATGCAATTGGCC', 'SVStream.makeInsertion: invalid output .');
+test('equal', result, 'gcatATGCAATTGGCC', 'SVConst.makeInsertion: invalid output .');
 
 
 /* more complicated offset and length */
 var result = SVConst.makeInversion(
   {start: 2, end: 6}, 'AACcCcTTTTGGG', 0
 );
-test('equal', result, 'AAgGgGTTTTGGG', 'SVStream.makeInsertion: invalid output .');
-test('result', 'SVStream static function test');
+test('equal', result, 'AAgGgGTTTTGGG', 'SVConst.makeInsertion: invalid output .');
+test('result', 'SVConst static function test');
 
 var result = SVConst.makeInversion(
   {start: 4002, end: 4006}, 'AACcCcTTTTGGG', 4000
 );
-test('equal', result, 'AAgGgGTTTTGGG', 'SVStream.makeInsertion: invalid output .');
-test('result', 'SVStream static function test');
+test('equal', result, 'AAgGgGTTTTGGG', 'SVConst.makeInsertion: invalid output .');
+test('result', 'SVConst static function test');
 
 
-var svstream = new SVGenerator.SVStream({nextream: mock, svs: [{
+/* SVStream test */
+var svstream = new SVGenerator.SVStream({svs: [{
   type: SVConst.DEL,
-  start: 6 + 3,
-  end: 6 + 3 + 5 -1 + 1
+  start: 3,
+  end: 6
 }]});
-svstream.write('>chr11\nAATGGCCAATGGCCAAAAATTTT');
-//                        ^^^^^
+
+svstream.on('data', function(data) {
+  if (!this.result) this.result = '';
+  if (!this.count) this.count = 1;
+  this.result += data;
+  //console.log((this.count++) + ':'+data);
+});
+
+svstream.on('end', function() {
+  //console.log(this.result);
+  test('equal', this.result, 'AATCAATGGCCAAAAATTTT', 'SVStream deletion failed.');
+  test('result', 'SVStream test1');
+});
+
+svstream.write('AATGGCCAATGGCCAAAAATTTT');
+//                 ^^^
 svstream.end();
-test('equal', mock.result, '>chr11\nAAAATGGCCAAAAATTTT', 'SVStream deletion failed.');
-mock.result = '';
 
 
-var svstream = new SVGenerator.SVStream({nextream: mock, svs: [{
+
+
+
+var svstream2 = new SVGenerator.SVStream({svs: [{
   type: SVConst.INS,
-  start: 6 + 4,
-  end: 6 + 4 + 5 -1 + 1,
+  start: 3,
+  end: 3 + 5,
   flagment: 'ctgac'
 }]});
-svstream.write('>chr11\nAATGGCCAATGGCCAAAAATTTT');
-//                         ^
-svstream.end();
-test('equal', mock.result, '>chr11\nAATctgacGGCCAATGGCCAAAAATTTT');
-mock.result = '';
 
+svstream2.on('data', function(data) {
+  if (!this.result) this.result = '';
+  if (!this.count) this.count = 1;
+  this.result += data;
+});
 
-var svstream = new SVGenerator.SVStream({nextream: mock, svs: [{
+svstream2.on('end', function() {
+  test('equal', this.result, 'AATctgacGGCCAATGGCCAAAAATTTT');
+  test('result', 'SVStream test2');
+});
+
+svstream2.write('AATGGCCAATGGCCAAAAATTTT');
+//                  ^
+svstream2.end();
+
+var svstream3 = new SVGenerator.SVStream({svs: [{
   type: SVConst.INV,
-  start: 6 + 10,
-  end: 6 + 10 + 6 -1 + 1
+  start: 10,
+  end: 10 + 6
 }]});
-svstream.write('>chr11\nAATGGCCAATGGCCAAAAATTTT');
-//                               ^^^^^^
-svstream.end();
-test('equal', mock.result, '>chr11\nAATGGCCAATGGCCAAAAATTTT');
-//                                           ^^^^^^
-mock.result = '';
 
-test('result', 'SVStream test');
+
+svstream3.on('data', function(data) {
+  if (!this.result) this.result = '';
+  if (!this.count) this.count = 1;
+  this.result += data;
+  //console.log((this.count++) + ':'+data);
+});
+
+svstream3.on('end', function() {
+  //console.log(this.result);
+  test('equal', this.result, 'AATGGCCAATTTGGCCAAATTTT');
+  test('result', 'SVStream test3');
+});
+
+svstream3.write('AATGGCCAATGGCCAAAAATTTT');
+//                         ^^^^^^
+svstream3.end();
 
 
 /* genotyping */
-require('./genotype');
+var svgen = new SVGenerator({
+  path    : __dirname + '/long.fa',
+  chrom   : 'test_reference',
+  svchrom : 'sv_test'
+});
+
+svgen.registerDel(1500, 300);
+svgen.registerIns(500, 100);
+svgen.registerInv(100, 300);
+svgen.registerDel(12200, 1300);
+svgen.registerIns(2200, 3300);
+svgen.registerInv(1, 20);
+
+var vals = svgen.genotype(null, true);
+var svs  = vals.svs;
+test('equal', svs.length, 6, 'invalid svs length');
+test('equal', svs[0].start, 0, 'invalid index of registered sv.');
+test('equal', svs[0].end, 20, 'invalid index of registered sv.');
+test('equal', svs[1].start, 99 + 1, 'invalid index of registered sv.');
+test('equal', svs[1].end, 99 + 1 + 300+6, 'invalid index of registered sv.');
+
+test('equal', svgen.fasta.fetch(1,10), 'CGCGGCTAGC', 'FASTAReader check failed.');
+
+var options = vals.options;
+options.end = options.start + 9;
+options.bufferSize = 100;
+var stream = fs.createReadStream(svgen.path, options);
+
+stream.on('data', function(data) {
+  test('equal', data.toString(), 'CGCGGCTAGC', 'FASTAReader check failed.');
+});
+
+stream.on('end', function() {
+  var wstream = new EventEmitter();
+  wstream.result = '';
+
+  wstream.write = function(data) {
+    this.result += data;
+  }
+
+  wstream.end = function() {
+
+    test('equal', this.result.slice(0,'>sv_test'.length), '>sv_test', 'result: invalid chromname');
+    test('equal', this.result.charAt('>sv_test'.length + 1 + 50), '\n', 'result: invalid linelen');
+
+    test('equal', this.result.slice(0,'>sv_test'.length), '>sv_test', 'result: invalid chromname');
+    test('equal', this.result.charAt('>sv_test'.length + 1 + 50), '\n', 'result: invalid linelen');
+
+
+    var genome = this.result.slice('>sv_test'.length).split('\n').join('');
+
+
+    /** INVERSION No.1 **/
+    test('equal',genome.substr(0, 20), dna.complStrand(svgen.fasta.fetch(1, 20)).split('').reverse().join('') , 'inversion check failed');
+
+    // modify genome for inversion 
+    genome = svgen.fasta.fetch(1,20) + genome.slice(20);
+    test('equal', genome.substr(0, 30), svgen.fasta.fetch(1, 30), 'inversion modification failed');
+
+
+    /** INVERSION No.2 **/
+    test('equal',genome.substr(99, 300), dna.complStrand(svgen.fasta.fetch(100, 300)).split('').reverse().join('') , 'inversion check failed');
+
+    // modify genome for inversion 
+    genome = genome.slice(0, 99) + svgen.fasta.fetch(100, 300) + genome.slice(99+300);
+    test('equal', genome.substr(0, 400), svgen.fasta.fetch(1, 400), 'inversion modification failed');
+
+
+    /** INSERTION No.1 **/
+    test('equal', genome.substr(399, 100) + genome.substr(599, 100), svgen.fasta.fetch(400, 200), 'insertion check failed');
+
+    // modify genome for insertion
+    genome = genome.slice(0, 499) + genome.slice(599);
+    test('equal', genome.substr(399, 200), svgen.fasta.fetch(400, 200), 'insertion modification failed');
+
+
+    /** DELETION No.1 **/
+    test('equal', genome.substr(1400-1, 200), svgen.fasta.fetch(1400, 100) + svgen.fasta.fetch(1800, 100), 'deletion check failed');
+
+    // modify genome for deletion 
+    genome = genome.slice(0, 1499) + svgen.fasta.fetch(1500, 300) + genome.slice(1499);
+    test('equal', genome.substr(1400-1, 500), svgen.fasta.fetch(1400, 500), 'deletion modification failed');
+
+
+    /** INSERTION No.2 **/
+    test('equal', genome.substr(2200-100-1, 100) + genome.substr(2200+3300-1, 100), svgen.fasta.fetch(2200-100, 200), 'insertion check failed');
+
+    // modify genome for insertion
+    genome = genome.slice(0, 2200-1) + genome.slice(2200+3300-1);
+    test('equal', genome.substr(2100-1, 200), svgen.fasta.fetch(2100, 200), 'insertion modification failed');
+
+    /** DELETION No.2 **/
+    test('equal', genome.substr(12200-100-1, 200), svgen.fasta.fetch(12200-100, 100) + svgen.fasta.fetch(12200+1300, 100), 'deletion check failed');
+
+    // modify genome for deletion 
+    genome = genome.slice(0, 12200-1) + svgen.fasta.fetch(12200, 1300) + genome.slice(12200-1);
+    test('equal', genome.substr(12200-100-1, 1500), svgen.fasta.fetch(12200-100, 1500), 'deletion modification failed');
+
+    /** RECONSTRUCTION CHECK **/
+    test('equal', genome, svgen.fasta.fetch(1, genome.length));
+
+
+    test('result', 'genotype test');
+  }
+
+  svgen.genotype(wstream);
+});
+
+
