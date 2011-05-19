@@ -64,7 +64,8 @@ function main() {
 /*
  * gen:
  * @param {Object} op
- *    {String} path       : original fasta file name (required)
+ *    {String} path       : original fasta file name
+ *    {Object} freader    : fasta reader object
  *    {String} chrom      : fasta id (if null, then set first fasta id)
  *    {String} svchrom    : sv fasta id (if null, then set to the same as chrom)
  *    {Number} bufferSize : for each buffer size to get fasta data (default 40960)
@@ -74,14 +75,17 @@ function main() {
  */
 function gen(op) {
   op = op || {};
-  this.path = op.path || '';
+  this.path = (function() {
+    if (op.path) return op.path;
+    return (op.freader instanceof FASTAReader) ? op.freader.fpath : '';
+  })();
 
-  if (!require('path').existsSync(this.path)) {
+  if (!(op.rfeader instanceof FASTAReader) && !require('path').existsSync(this.path)) {
     gen.error('"'+this.path + '": No such file.');
     return;
   }
 
-  this.fastas = new FASTAReader(this.path);
+  this.fastas = (op.freader instanceof FASTAReader) ? op.freader : new FASTAReader(this.path);
 
   try {
     this.chrom = op.chrom || Object.keys(this.fastas.result)[0];
