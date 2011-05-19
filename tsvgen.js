@@ -98,11 +98,11 @@ function main() {
 
   stderr('generating SNP registration data');
   /* generate SNP registration data */
-  var snps = {};
-  var snpnum = Math.floor(total / snprate);
-  const snpcount = 0;
+  const snpnum = Math.floor(total / snprate);
+  var snpcount = 0;
 
   rnames.forEach(function(rname, i) {
+    var snps = {};
     const fasta        = fastas.result[rname];
     const svgen        = new SVGenerator({freader: fastas, chrom: rname});
     const endpos       = fasta.getEndPos();
@@ -140,7 +140,6 @@ function main() {
 
 const output = function() {
   console.log(Array.prototype.join.call(arguments, '\t'));
-  console.log.apply(this, arguments);
 }
 
 if (process.argv[1] === __filename) {

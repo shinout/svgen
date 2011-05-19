@@ -24,7 +24,7 @@ const spawn       = require('child_process').spawn;
 function main() {
   function showUsage() {
     gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
-    gen.error('tsv file columns: SVtype(DEL|INS|INV)\tstart-position\tlength');
+    gen.error('tsv file columns: SVtype(DEL|INS|INV|SNP)\tstart-position\tlength');
   }
 
   var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop']).parse();
@@ -255,7 +255,7 @@ gen.prototype.registerSVFromTSVFile = function(tsv) {
     var svinfo = line.split('\t');
 
     if (svinfo[3] != this.chrom) {
-      gen.error(svinfo[3] + ' : different chromosome type. skip registration.');
+      //gen.error(svinfo[3] + ' : different chromosome type. skip registration.');
       return;
     }
     var svtype = (svinfo[0] == 'SNP') ? 'SNP' : SVConst[svinfo[0]];
