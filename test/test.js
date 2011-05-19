@@ -64,8 +64,8 @@ test('ok', e && e.match(/length/), 'No error occurred when zero is given to leng
 
 svgen.registerDel(1, 200);
 test('equal', svgen.svs.length, 1, 'Deletion event didn\'t registered.');
-test('equal', svgen.svs[0].start , 7, 'invalid coordinate.');
-test('equal', svgen.svs[0].end , 200 + 7 - 1 + 3 + 1, 'invalid coordinate.');
+test('equal', svgen.svs[0].start , 7 - svgen.startIdx, 'invalid coordinate.');
+test('equal', svgen.svs[0].end , 200 + 7 - 1 + 3 + 1 - svgen.startIdx, 'invalid coordinate.');
 
 svgen.registerInv(100, 90);
 var e = errs.shift();
@@ -151,20 +151,20 @@ test('equal', svgen.prelen, 'test_reference'.length + 2, 'invalid prelen.');
 test('equal', svgen.startIdx, 3000 * 51 + 7 + 2 + svgen.prelen, 'invalid startIdx.');
 test('equal', 'A', fs.readFileSync(__dirname + '/long.fa').toString().substr(svgen.endIdx-2,1), 'invalid endIdx');
 svgen.registerDel(1, 20);
-test('equal', svgen.svs[0].start, svgen.startIdx, 'invalid index of registered deletion.');
-test('equal', svgen.svs[0].end, svgen.startIdx + 20, 'invalid index of registered deletion.');
+test('equal', svgen.svs[0].start, 0, 'invalid index of registered deletion.');
+test('equal', svgen.svs[0].end, 20, 'invalid index of registered deletion.');
 
 svgen.registerIns(51, 20);
-test('equal', svgen.svs[1].start, svgen.startIdx + 51, 'invalid start of registered insertion.');
-test('equal', svgen.svs[1].end, svgen.startIdx + 51 + 20, 'invalid end of registered insertion.');
+test('equal', svgen.svs[1].start, 51, 'invalid start of registered insertion.');
+test('equal', svgen.svs[1].end, 51 + 20, 'invalid end of registered insertion.');
 
 svgen.registerIns(100, 52);
-test('equal', svgen.svs[2].start, svgen.startIdx + 100, 'invalid start of registered insertion.');
-test('equal', svgen.svs[2].end, svgen.startIdx + 100 + 52 + 2, 'invalid end of registered insertion.');
+test('equal', svgen.svs[2].start, 100, 'invalid start of registered insertion.');
+test('equal', svgen.svs[2].end, 100 + 52 + 2, 'invalid end of registered insertion.');
 
 svgen.registerInv(222, 50);
-test('equal', svgen.svs[3].start, svgen.startIdx + 221 +4, 'invalid start of registered inversion.');
-test('equal', svgen.svs[3].end, svgen.startIdx + 221 + 4 + 51, 'invalid end of registered inversion.');
+test('equal', svgen.svs[3].start, 221 +4, 'invalid start of registered inversion.');
+test('equal', svgen.svs[3].end, 221 + 4 + 51, 'invalid end of registered inversion.');
 
 test('result', 'registerSV test');
 
@@ -298,6 +298,9 @@ svstream3.on('end', function() {
 svstream3.write('AATGGCCAATGGCCAAAAATTTT');
 //                         ^^^^^^
 svstream3.end();
+
+/* SNP test */
+//require('./snptest');
 
 
 /* genotyping */

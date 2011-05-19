@@ -106,6 +106,7 @@ function gen(op) {
   this.startIdx   = this.fasta.getStartIndex();
   this.endIdx     = this.fasta.getEndIndex();
   this.svs        = [];
+  this.snps       = [];
   this.valid      = true;
 }
 
@@ -157,15 +158,15 @@ gen.prototype.registerSV= function(type, start, len, op) {
     return false;
   }
 
-  var idxStart = this.fasta.getIndex(start);
-  var idxEnd   = this.fasta.getIndex(start + len-1) + 1;
+  var idxStart = this.fasta.getIndex(start) - this.startIdx;
+  var idxEnd   = this.fasta.getIndex(start + len-1) + 1 - this.startIdx;
 
   /* check range */
-  if (idxStart < this.startIdx || this.endIdx < idxStart) {
+  if (idxStart < 0 || this.endIdx - this.startIdx < idxStart) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' is out of range.');
     return false;
   }
-  if (idxEnd < this.startIdx || this.endIdx < idxEnd) {
+  if (idxEnd < 0 || this.endIdx - this.startIdx < idxEnd) {
     gen.error('SV['+SVConst.types[type]+']: position of '+start+' with length('+len+') is out of range.');
     return false;
   }
@@ -226,6 +227,7 @@ gen.prototype.registerIns= function(start, len, flagment) {
  *
  * @param start  : base position (1-base start) left side will of which be inverted.
  * @param length : inversion length
+ * @return {Boolean} : succeed or not
  */
 gen.prototype.registerInv= function(start, len) { return this.registerSV(SVConst.INV, start, len); }
 
@@ -252,10 +254,13 @@ gen.prototype.registerSVFromTSVFile = function(tsv) {
       gen.error(svinfo[3] + ' : different chromosome type. skip registration.');
       return;
     }
-    var svtype = SVConst[svinfo[0]];
+    var svtype = (svinfo[0] == 'SNP') ? 'SNP' : SVConst[svinfo[0]];
     var result;
     switch (svtype) {
-      case SVConst.DEL: 
+      case 'SNP':
+        result = this.registerSNP(svinfo[1], svinfo[2]);
+        break;
+      case SVConst.DEL:
         result = this.registerDel(svinfo[1], svinfo[2]);
         break;
       case SVConst.INS: 
@@ -274,6 +279,43 @@ gen.prototype.registerSVFromTSVFile = function(tsv) {
   return ret;
 }
 
+/**
+ * register SNP
+ *
+ * @param {Number} pos : base position (1-base start) of SNP.
+ * @param {Number} to  : 1: A->C->G->T->A  2: A->G->A C->T->C 3: A->T->G->C->A 4: del 5: INS(random)
+ * @return {Boolean}   : succeed or not
+ */
+gen.prototype.registerSNP = function(pos, to) { 
+  to = Number(to);
+  if (pos <= 0) {
+    gen.error('SNP: start must be positive.');
+    return false;
+  }
+
+  if (to < 1 || 5 < to) {
+    gen.error('SNP: "to" must be in 1 to 5.');
+    return false;
+  }
+
+  var idxStart = this.fasta.getIndex(pos);
+
+  /* check range */
+  if (idxStart < this.startIdx || this.endIdx < idxStart) {
+    gen.error('SNP: position of '+ pos +' is out of range.');
+    return false;
+  }
+
+  var snpdata = { to: to, start: idxStart - this.startIdx, pos: pos};
+  this.snps.push(snpdata);
+
+  this.snps.sort(function(a,b){
+    return (a.start > b.start) ? 1 : -1;
+  });
+  return true;
+}
+
+
 
 /**
  * get sv fasta to stdout.
@@ -288,21 +330,7 @@ gen.prototype.genotype = function(wstream, dryrun) {
     end        : this.endIdx -1,
   };
 
-  var svs = (function(orig, startIdx) {
-    var ret = [];
-    orig.forEach(function(v, k) {
-      ret[k] = {
-        type  : orig[k].type,
-        start : orig[k].start - startIdx,
-        end   : orig[k].end - startIdx,
-        pos   : orig[k].pos,
-        len   : orig[k].len
-      };
-      if (orig[k].flagment) ret[k].flagment = orig[k].flagment;
-    });
-    return ret;
-  })(this.svs, this.startIdx);
-  if (dryrun) return {svs: svs, options: options};
+  if (dryrun) return {svs: this.svs, snps: this.snps, options: options};
 
   var rstream = fs.createReadStream(this.path, options);
 
@@ -325,7 +353,7 @@ gen.prototype.genotype = function(wstream, dryrun) {
   out.write('>' + this.svchrom + '\n');
 
 
-  var svstream = new gen.SVStream({svs: svs}); 
+  var svstream = new gen.SVStream({svs: this.svs, snps: this.snps}); 
 
   // pipe
   rstream.on('data', function(d) {

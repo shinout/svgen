@@ -4,18 +4,61 @@ var SVConst = require('./SVConst');
 /* constructor */
 function SVStream(op) {
   this.svs = op.svs || [];
+  this.snps = op.snps || [];
   this.pos = 0;
-  this.i = 0;
+  this.i = 0; // counter for SV
+  this.j = 0; // counter for SNP
   this.remnant = '';
 }
+
 
 /* extends */
 SVStream.prototype = new EventEmitter();
 
+SVStream.prototype.snpize = function(chunk) {
+  var snp = this.snps[this.j];
+  var end = this.pos + chunk.length;
+  var ins = [];
+  var del = [];
+  var ret = '';
+  while (snp && snp.start+1 <= end) {
+    var str = chunk.slice(0, snp.start + 1 - this.pos);
+    switch (snp.to) {
+    case 1:
+    case 2:
+    case 3:
+      ret += SVConst.makeSNP(snp, str, this.pos);
+      break;
+    case 4:
+      ret += SVConst.makeDeletion({start: snp.start, end: snp.start+1}, str, this.pos);
+      del.push(snp.start);
+      break;
+    case 5:
+      ret += SVConst.makeInsertion({
+        start    : snp.start,
+        end      : snp.start+1,
+        flagment : SVConst.BASES[Math.floor(Math.random() * 4)]
+      }, str, this.pos);
+      ins.push(snp.start);
+      break;
+    default:
+      ret += str;
+      break;
+    }
+    chunk = chunk.slice(snp.start + 1 - this.pos);
+    this.pos += str.length;
+    this.j++;
+    snp = this.snps[this.j];
+  }
+  return {chunk: ret + chunk, ins: ins, del: del};
+};
+
 SVStream.prototype.write = function(data) {
   var chunk = this.remnant + data;
   this.remnant = '';
-  var sv = this.svs[this.i];
+  var snp = this.snpize(chunk);
+  chunk = snp.chunk;
+  var sv  = this.svs[this.i];
   var end = this.pos + chunk.length;
   
   /* if all svs were applied */

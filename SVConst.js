@@ -1,9 +1,11 @@
+const BASES = ['A', 'C', 'G', 'T'];
 var dna = require('./lib/dna');
 var a = {
-  DEL: 0,
-  INS: 1,
-  INV: 2,
-  types: []
+  DEL   : 0,
+  INS   : 1,
+  INV   : 2,
+  types : [],
+  BASES : BASES
 }
 
 a.types[a.DEL] = 'DEL';
@@ -46,6 +48,18 @@ a.makeInversion = function(sv, str, pos) {
   return str.slice(0, sv.start - pos) + 
   dna.complStrand(str.slice(sv.start-pos, sv.end-pos)).split('').reverse().join('') + 
   str.slice(sv.end - pos);
+}
+
+/**
+ * SVConst.makeSNP
+ * make inversion to str with sv object
+ */
+a.makeSNP = function(snp, str, pos) {
+ return str.slice(0, snp.start - pos) + (function() {
+   var c = str.charAt(snp.start - pos);
+   var idx = BASES.indexOf(c.toUpperCase());
+   return (idx >= 0) ? BASES[(idx + snp.to) % 4] : c;
+ })() + str.slice(snp.start + 1 - pos);
 }
 
 module.exports = a;
