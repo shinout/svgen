@@ -20,14 +20,14 @@ SVStream.prototype.write = function(data) {
   
   /* if all svs were applied */
   if (!sv) {
-    this.emit('data', chunk);
+    this.emitDataWithoutLF(chunk);
     this.pos += chunk.length;
     return;
   }
 
   /* if the current sv not in this range */
   if (end < sv.start) {
-    this.emit('data', chunk);
+    this.emitDataWithoutLF(chunk);
     this.pos += chunk.length;
     return;
   }
@@ -38,14 +38,32 @@ SVStream.prototype.write = function(data) {
 
   /* execute making sv */
   this.makeSV(sv, chunk, end);
-}
+};
+
+SVStream.prototype.emitDataWithoutLF = function(data) {
+  this.emit('data', data.split('\n').join(''));
+};
+
+SVStream.prototype.pipe = function(stream) {
+  this.on('data', function(data) {
+    stream.write(data);
+  });
+
+  this.on('end', function() {
+    stream.end();
+  });
+
+  this.on('error', function(e) {
+    stream.emit('error', e);
+  });
+};
 
 SVStream.prototype.end = function() {
   if (this.remnant) {
     var sv = this.svs[this.i];
     var end = this.pos + this.remnant.length;
     this.makeSV(sv, this.remnant, end);
-    this.emit('data', this.remnant);
+    this.emitDataWithoutLF(this.remnant);
   }
   this.emit('end');
 }
@@ -55,13 +73,13 @@ SVStream.prototype.makeSV = function(sv, chunk, end) {
     var str = chunk.slice(0, sv.end - this.pos);
     switch (sv.type) {
     case SVConst.DEL:
-      this.emit('data', SVConst.makeDeletion(sv, str, this.pos));
+      this.emitDataWithoutLF(SVConst.makeDeletion(sv, str, this.pos));
       break;
     case SVConst.INS:
-      this.emit('data', SVConst.makeInsertion(sv, str, this.pos));
+      this.emitDataWithoutLF(SVConst.makeInsertion(sv, str, this.pos));
       break;
     case SVConst.INV:
-      this.emit('data', SVConst.makeInversion(sv, str, this.pos));
+      this.emitDataWithoutLF(SVConst.makeInversion(sv, str, this.pos));
       break;
     default:
       // err

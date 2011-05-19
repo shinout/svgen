@@ -1,20 +1,20 @@
-INV	61178	352
-DEL	3385	406
-INV	6921	441
-INV	29820	355
-DEL	56857	394
-INV	5912	211
-DEL	22504	399
-INS	8748	281
-INS	4912	122
-INV	11960	321
-INS	60951	509
-INV	82150	322
-INS	31051	509
-DEL	63282	382
-INV	46038	470
-DEL	89771	382
-INS	10080	111
-INV	11333	409
-DEL	3764	447
-INS	74036	330
+INV	61178	352	test_reference
+DEL	3385	406	test_reference
+INV	6921	441	test_reference
+INV	29820	355	test_reference
+DEL	56857	394	test_reference
+INV	5912	211	test_reference
+DEL	22504	399	test_reference
+INS	8748	281	test_reference
+INS	4912	122	test_reference
+INV	11960	321	test_reference
+INS	60951	509	test_reference
+INV	82150	322	test_reference
+INS	31051	509	test_reference
+DEL	63282	382	test_reference
+INV	46038	470	test_reference
+DEL	89771	382	test_reference
+INS	10080	111	test_reference
+INV	11333	409	test_reference
+DEL	3764	447	test_reference
+INS	74036	330	test_reference

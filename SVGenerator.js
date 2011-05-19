@@ -4,6 +4,7 @@ const dna         = require('./lib/dna');
 const AP          = require('argparser');
 const LS          = require('linestream');
 const fs          = require('fs');
+const spawn       = require('child_process').spawn;
 
 /*
  * node SVGenerator.js
@@ -22,11 +23,11 @@ const fs          = require('fs');
  */
 function main() {
   function showUsage() {
-    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + '[-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
+    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
     gen.error('tsv file columns: SVtype(DEL|INS|INV)\tstart-position\tlength');
   }
 
-  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).parse();
+  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop']).parse();
 
   var tsv = p.getArgs(0);
   if (!tsv) {
@@ -53,7 +54,7 @@ function main() {
   }
 
   var tsvresult = svgen.registerSVFromTSVFile(tsv);
-  if (!tsvresult) process.exit();
+  if (!tsvresult && !p.getOptions('nonstop')) process.exit();
 
   svgen.genotype();
 }
@@ -246,6 +247,11 @@ gen.prototype.registerSVFromTSVFile = function(tsv) {
   lines.forEach(function(line) {
     if (!line || line.charAt(0) == '#') return;
     var svinfo = line.split('\t');
+
+    if (svinfo[3] != this.chrom) {
+      gen.error(svinfo[3] + ' : different chromosome type. skip registration.');
+      return;
+    }
     var svtype = SVConst[svinfo[0]];
     var result;
     switch (svtype) {
@@ -314,6 +320,7 @@ gen.prototype.genotype = function(wstream, dryrun) {
       ? wstream 
       : process.stdout; 
   }
+
   
   out.write('>' + this.svchrom + '\n');
 
@@ -328,32 +335,24 @@ gen.prototype.genotype = function(wstream, dryrun) {
     svstream.end();
   });
 
-  var remnant = '';
-  var pos     = 0;
   var linelen = this.linelen;
-  svstream.on('data', function(data){
-    var chunk = remnant + data.replace(/\n/g, '');
-    remnant   = '';
+  var fold = spawn('fold', ['-w', linelen]);
 
-    while (chunk.length >= linelen) {
-      out.write(chunk.slice(0, linelen)+ '\n');
-      pos += linelen;
-      chunk = chunk.slice(linelen);
-    }
-    remnant = chunk;
+  svstream.pipe(fold.stdin);
+
+  fold.stdout.on('data', function(data) {
+    out.write(data.toString());
   });
+
+  fold.stdout.on('end', function() {
+    out.end();
+  });
+
+  //fold.stdout.pipe(out);
 
   svstream.on('error', function(e){
     gen.error(e);
   });
-
-  svstream.on('end', function(){
-    if (remnant) {
-      out.write(remnant + '\n');
-    }
-    out.end();
-  });
-
 }
 
 /**
@@ -371,7 +370,3 @@ module.exports = gen;
 if (__filename == process.argv[1]) {
   main();
 }
-
-
-
-
