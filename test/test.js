@@ -1,9 +1,10 @@
-var SVGenerator = require('../SVGenerator');
-var SVConst     = require('../SVConst');
-var test        = require('./shinout.test');
-var fs          = require('fs');
-var dna         = require('../lib/dna');
+var SVGenerator  = require('../SVGenerator');
+var SVConst      = require('../SVConst');
+var test         = require('./shinout.test');
+var fs           = require('fs');
+var dna          = require('../lib/dna');
 var EventEmitter = require('events').EventEmitter;
+var BASES        = SVConst.BASES;
 
 var errs = [];
 SVGenerator.error = function(v) {
@@ -317,6 +318,12 @@ svgen.registerDel(12200, 1300);
 svgen.registerIns(2200, 3300);
 svgen.registerInv(1, 20);
 
+svgen.registerSNP(30, 1);
+svgen.registerSNP(10000, 2);
+svgen.registerSNP(10100, 3);
+svgen.registerSNP(10200, 4);
+svgen.registerSNP(10300, 5);
+
 var vals = svgen.genotype(null, true);
 var svs  = vals.svs;
 test('equal', svs.length, 6, 'invalid svs length');
@@ -361,7 +368,13 @@ stream.on('end', function() {
 
     // modify genome for inversion 
     genome = svgen.fasta.fetch(1,20) + genome.slice(20);
-    test('equal', genome.substr(0, 30), svgen.fasta.fetch(1, 30), 'inversion modification failed');
+    test('equal', genome.substr(0, 25), svgen.fasta.fetch(1, 25), 'inversion modification failed');
+
+    /** SNP No.1 **/
+    var idx = BASES.indexOf(svgen.fasta.fetch(30,1).toUpperCase());
+    test('equal', genome.charAt(29), BASES[(idx + 1) % 4]);
+    // modify genome for SNP
+    genome = genome.slice(0, 29) + svgen.fasta.fetch(30, 1) + genome.slice(30);
 
 
     /** INVERSION No.2 **/
@@ -394,6 +407,34 @@ stream.on('end', function() {
     // modify genome for insertion
     genome = genome.slice(0, 2200-1) + genome.slice(2200+3300-1);
     test('equal', genome.substr(2100-1, 200), svgen.fasta.fetch(2100, 200), 'insertion modification failed');
+
+
+    /** SNP No.2 **/
+    var idx = BASES.indexOf(svgen.fasta.fetch(10000,1).toUpperCase());
+    test('equal', genome.charAt(9999), BASES[(idx + 2) % 4]);
+    // modify genome for SNP
+    genome = genome.slice(0, 9999) + svgen.fasta.fetch(10000, 1) + genome.slice(10000);
+
+
+    /** SNP No.3 **/
+    var idx = BASES.indexOf(svgen.fasta.fetch(10100,1).toUpperCase());
+    test('equal', genome.charAt(10099), BASES[(idx + 3) % 4]);
+    // modify genome for SNP
+    genome = genome.slice(0, 10100-1) + svgen.fasta.fetch(10100, 1) + genome.slice(10100);
+
+    /** SNP No.4 : 1base DELETION **/
+    test('equal', genome.charAt(10199), svgen.fasta.fetch(10201, 1).toUpperCase());
+    // modify genome for SNP
+    genome = genome.slice(0, 10200-1) + svgen.fasta.fetch(10200, 1) + genome.slice(10200-1);
+
+
+    /** SNP No.5 : 1base INSERTION **/
+    var idx = BASES.indexOf(svgen.fasta.fetch(10300,1).toUpperCase());
+    console.log('equal', genome.charAt(10300), svgen.fasta.fetch(10300,1).toUpperCase());
+    // modify genome for SNP
+    genome = genome.slice(0, 10300) + genome.slice(10301);
+
+
 
     /** DELETION No.2 **/
     test('equal', genome.substr(12200-100-1, 200), svgen.fasta.fetch(12200-100, 100) + svgen.fasta.fetch(12200+1300, 100), 'deletion check failed');

@@ -17,36 +17,37 @@ SVStream.prototype = new EventEmitter();
 
 SVStream.prototype.snpize = function(chunk) {
   var snp = this.snps[this.j];
-  var end = this.pos + chunk.length;
+  var pos = this.pos;
+  var end = pos + chunk.length;
   var ins = [];
   var del = [];
   var ret = '';
   while (snp && snp.start+1 <= end) {
-    var str = chunk.slice(0, snp.start + 1 - this.pos);
+    var str = chunk.slice(0, snp.start + 1 - pos);
     switch (snp.to) {
     case 1:
     case 2:
     case 3:
-      ret += SVConst.makeSNP(snp, str, this.pos);
+      ret += SVConst.makeSNP(snp, str, pos);
       break;
-    case 4:
-      ret += SVConst.makeDeletion({start: snp.start, end: snp.start+1}, str, this.pos);
+    case 4: // 1base DELETION
+      ret += SVConst.makeDeletion({start: snp.start, end: snp.start+1}, str, pos);
       del.push(snp.start);
       break;
-    case 5:
+    case 5: // 1base INSERTION 
       ret += SVConst.makeInsertion({
         start    : snp.start,
         end      : snp.start+1,
         flagment : SVConst.BASES[Math.floor(Math.random() * 4)]
-      }, str, this.pos);
+      }, str, pos);
       ins.push(snp.start);
       break;
     default:
       ret += str;
       break;
     }
-    chunk = chunk.slice(snp.start + 1 - this.pos);
-    this.pos += str.length;
+    chunk = chunk.slice(snp.start + 1 - pos);
+    pos += str.length;
     this.j++;
     snp = this.snps[this.j];
   }
