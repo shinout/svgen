@@ -23,11 +23,11 @@ const spawn       = require('child_process').spawn;
  */
 function main() {
   function showUsage() {
-    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
+    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--test] [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
     gen.error('tsv file columns: SVtype(DEL|INS|INV|SNP)\tstart-position\tlength');
   }
 
-  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop']).parse();
+  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop', 'test']).parse();
 
   var tsv = p.getArgs(0);
   if (!tsv) {
@@ -46,6 +46,7 @@ function main() {
   }
 
   var chrom   = p.getOptions('chrom') || p.getOptions('c');
+
   var svchrom = p.getOptions('name') || p.getOptions('n') || chrom;
 
   var svgen   = new gen({path: fastafile, chrom: chrom, svchrom: svchrom});
@@ -56,7 +57,11 @@ function main() {
   var tsvresult = svgen.registerSVFromTSVFile(tsv);
   if (!tsvresult && !p.getOptions('nonstop')) process.exit();
 
-  svgen.genotype();
+  const dryrun = p.getOptions('test');
+  var ret = svgen.genotype(null, dryrun);
+  
+  if (dryrun) console.log(ret);
+
 }
 
 
@@ -91,7 +96,7 @@ function gen(op) {
     this.chrom = op.chrom || Object.keys(this.fastas.result)[0];
   }
   catch (e){
-    console.log(e);
+    console.error(e);
     gen.error(this.path + 'does not seem to be FASTA format.');
     return;
   }
@@ -125,17 +130,20 @@ gen.SVConst      = SVConst;
  * (internal)
  */
 gen.prototype.checkDuplication = function(idxStart, idxEnd) {
-  if (this.svs.length == 0) { return false;}
+  const len = this.svs.length;
+  if (len == 0) { return false;}
 
   var i = 0;
-  do {
-    if ((this.svs[i].start <= idxStart && idxStart <= this.svs[i].end)
-                      ||
-        (this.svs[i].start <= idxEnd && idxEnd <= this.svs[i].end) ) {
-      return true;
+  while (i == 0 || this.svs[i-1]) {
+    var start = (i >= 1) ? this.svs[i-1].end: -1;
+    var end   = (i == len) ? this.endIdx - this.startIdx +1 : this.svs[i].start;
+    if (end <= idxStart) {
+      i++;
+      continue;
     }
-    i++;
-  } while (this.svs[i] && this.svs[i].start <= idxEnd);
+
+    return !( start < idxStart && idxEnd < end);
+  }
   return false;
 }
 

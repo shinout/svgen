@@ -430,9 +430,9 @@ stream.on('end', function() {
 
     /** SNP No.5 : 1base INSERTION **/
     var idx = BASES.indexOf(svgen.fasta.fetch(10300,1).toUpperCase());
-    console.log('equal', genome.charAt(10300), svgen.fasta.fetch(10300,1).toUpperCase());
+    test('equal', genome.charAt(10300), svgen.fasta.fetch(10300,1).toUpperCase());
     // modify genome for SNP
-    genome = genome.slice(0, 10300) + genome.slice(10301);
+    genome = genome.slice(0, 10299) + genome.slice(10300);
 
 
 
@@ -444,6 +444,18 @@ stream.on('end', function() {
     test('equal', genome.substr(12200-100-1, 1500), svgen.fasta.fetch(12200-100, 1500), 'deletion modification failed');
 
     /** RECONSTRUCTION CHECK **/
+    var len = genome.length;
+    var orig = svgen.fasta.fetch(1, len);
+
+    /*
+    for (i =0; i < len; i++) {
+      if (genome.charAt(i) != orig.charAt(i)) {
+        console.log(i, 'miss');
+        console.log(genome.slice(i-5, i+10), orig.slice(i-5, i+10));
+      }
+    }
+    */
+
     test('equal', genome, svgen.fasta.fetch(1, genome.length));
 
 
