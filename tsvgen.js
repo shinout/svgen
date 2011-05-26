@@ -38,7 +38,7 @@ function main() {
   }
 
   if (! require('path').existsSync(fastafile)) {
-    gen.error(fastafile + ': No such file.');
+    console.error(fastafile + ': No such file.');
     process.exit();
   }
 

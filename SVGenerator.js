@@ -352,7 +352,8 @@ gen.prototype.genotype = function(wstream, dryrun) {
     out = fs.createWriteStream(wstream);
   }
   else {
-    out = (typeof wstream == 'object' && 
+    out = (wstream &&
+           typeof wstream == 'object' && 
            typeof wstream.write == 'function' &&
            typeof wstream.end == 'function' &&
            typeof wstream.on == 'function'
