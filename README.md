@@ -26,18 +26,9 @@ Overview
 
     sg.genotype(); // then result will come up to your STDOUT
 #### command line ####
-    node SVGenerator.js sv.tsv --chrom chr11 --name sv_chr11 sample.fasta  > chr11_sv.fasta
+    node SVGenerator.js sv.bed --chrom chr11 --name sv_chr11 sample.fasta  > chr11_sv.fasta
 
     # --chrom or -c : chromosome name in FASTA
     # --name or -n  : new name of chromosome with sv
-    # argv 1        : TSV file (SV information in it)
+    # argv 1        : BED file (SV information in it)
     # argv 2        : FASTA file to make sv from
-
-
-    # TSV format to specify SV
-    #
-    # TYPE(DEL|INS|INV)  START_BASE_POSIION  LENGTH  RNAME
-    DEL 10354901  341  chr11
-    INS 746913  2912  chr11
-    INV 90110234  567  chr11
-    DEL 431931  333   chr11

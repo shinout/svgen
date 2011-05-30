@@ -10,7 +10,7 @@ const spawn       = require('child_process').spawn;
  * node SVGenerator.js
  * 
  * arguments
- *    1: tsv file name   (required)
+ *    1: bed file name   (required)
  *    2: fasta file name (required)
  *
  * options
@@ -23,14 +23,14 @@ const spawn       = require('child_process').spawn;
  */
 function main() {
   function showUsage() {
-    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--test] [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <tsv file> <fasta file>');
-    gen.error('tsv file columns: SVtype(DEL|INS|INV|SNP)\tstart-position\tlength');
+    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--test] [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <bed file> <fasta file>');
+    gen.error('bed file columns: rname\tstart-position\tend-position\tSVtype(DEL|INS|INV|SNP)\tlength');
   }
 
   var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop', 'test']).parse();
 
-  var tsv = p.getArgs(0);
-  if (!tsv) {
+  var bed = p.getArgs(0);
+  if (!bed) {
     showUsage();
     process.exit();
   }
@@ -54,13 +54,13 @@ function main() {
     process.exit();
   }
 
-  var tsvresult = svgen.registerSVFromTSVFile(tsv);
-  if (!tsvresult && !p.getOptions('nonstop')) process.exit();
+  var bedresult = svgen.registerSVFromBEDFile(bed);
+  if (!bedresult && !p.getOptions('nonstop')) process.exit();
 
   const dryrun = p.getOptions('test');
   var ret = svgen.genotype(null, dryrun);
   
-  if (dryrun) console.log(ret);
+  if (dryrun) console.error(ret);
 
 }
 
@@ -245,41 +245,41 @@ gen.prototype.registerInv= function(start, len) { return this.registerSV(SVConst
 
 
 /**
- * register SV from TSV data
+ * register SV from BED data
  *
- * @param tsv        : tsv file name
+ * @param bed        : bed file name
  * @return {Boolean} : succeed or not
  */
-gen.prototype.registerSVFromTSVFile = function(tsv) {
-  if (! require('path').existsSync(tsv)) {
-    gen.error(tsv + ': No such file.');
+gen.prototype.registerSVFromBEDFile = function(bed) {
+  if (! require('path').existsSync(bed)) {
+    gen.error(bed + ': No such file.');
     return false;
   }
 
-  var lines = fs.readFileSync(tsv, 'utf-8').split('\n');
+  var lines = fs.readFileSync(bed, 'utf-8').split('\n');
   var ret = false;
   lines.forEach(function(line) {
     if (!line || line.charAt(0) == '#') return;
     var svinfo = line.split('\t');
 
-    if (svinfo[3] != this.chrom) {
-      //gen.error(svinfo[3] + ' : different chromosome type. skip registration.');
+    if (svinfo[0] != this.chrom) {
+      //gen.error(svinfo[0] + ' : different chromosome type. skip registration.');
       return;
     }
-    var svtype = (svinfo[0] == 'SNP') ? 'SNP' : SVConst[svinfo[0]];
+    var svtype = (svinfo[3] == 'SNP') ? 'SNP' : SVConst[svinfo[3]];
     var result;
     switch (svtype) {
       case 'SNP':
-        result = this.registerSNP(svinfo[1], svinfo[2]);
+        result = this.registerSNP(svinfo[1], svinfo[4]);
         break;
       case SVConst.DEL:
-        result = this.registerDel(svinfo[1], svinfo[2]);
+        result = this.registerDel(svinfo[1], svinfo[4]);
         break;
       case SVConst.INS: 
-        result = this.registerIns(svinfo[1], svinfo[2]);
+        result = this.registerIns(svinfo[1], svinfo[4]);
         break;
       case SVConst.INV: 
-        result = this.registerInv(svinfo[1], svinfo[2]);
+        result = this.registerInv(svinfo[1], svinfo[4]);
         break;
       default:
         result = false;

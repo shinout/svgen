@@ -169,33 +169,33 @@ test('equal', svgen.svs[3].end, 221 + 4 + 51, 'invalid end of registered inversi
 
 test('result', 'registerSV test');
 
-/* register from TSV file test */
+/* register from BED file test */
 var svgen = new SVGenerator({
   path    : __dirname + '/long.fa',
   chrom   : 'test_reference',
   svchrom : 'sv_test'
 });
-var bool = svgen.registerSVFromTSVFile(__dirname + '/error.tsv')
-test('ok', !bool, 'error.tsv registered incorrectly.');
+var bool = svgen.registerSVFromBEDFile(__dirname + '/error.bed')
+test('ok', !bool, 'error.bed registered incorrectly.');
 
-var bool = svgen.registerSVFromTSVFile(__dirname + '/one_ok.tsv')
-test('equal', svgen.svs.length, 1, 'one_ok.tsv registered incorrectly.');
-test('ok', bool, 'one_ok.tsv registered incorrectly.');
+var bool = svgen.registerSVFromBEDFile(__dirname + '/one_ok.bed')
+test('equal', svgen.svs.length, 1, 'one_ok.bed registered incorrectly.');
+test('ok', bool, 'one_ok.bed registered incorrectly.');
 
-var bool = svgen.registerSVFromTSVFile(__dirname + '/sample.tsv')
-test('equal', svgen.svs.length, 20+1 -1 -1 - 11, 'sample.tsv did not registered correctly.');
+var bool = svgen.registerSVFromBEDFile(__dirname + '/sample.bed')
+test('equal', svgen.svs.length, 20+1 -1 -1 - 11, 'sample.bed did not registered correctly.');
 // one duplication with one_ok and one dupe with itself and 11 out of range
-test('ok', bool, 'sample.tsv did not registered correctly.');
-test('equal', svgen.svs[0].type, SVConst.DEL, 'sample.tsv did not registered correctly.');
-test('equal', svgen.svs[0].pos, 3385, 'sample.tsv did not registered correctly.');
+test('ok', bool, 'sample.bed did not registered correctly.');
+test('equal', svgen.svs[0].type, SVConst.DEL, 'sample.bed did not registered correctly.');
+test('equal', svgen.svs[0].pos, 3385, 'sample.bed did not registered correctly.');
 
-test('equal', svgen.svs[1].type, SVConst.INS, 'sample.tsv did not registered correctly.');
-test('equal', svgen.svs[1].pos, 4912, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[1].type, SVConst.INS, 'sample.bed did not registered correctly.');
+test('equal', svgen.svs[1].pos, 4912, 'sample.bed did not registered correctly.');
 
-test('equal', svgen.svs[2].type, SVConst.INV, 'sample.tsv did not registered correctly.');
-test('equal', svgen.svs[2].pos, 5912, 'sample.tsv did not registered correctly.');
+test('equal', svgen.svs[2].type, SVConst.INV, 'sample.bed did not registered correctly.');
+test('equal', svgen.svs[2].pos, 5912, 'sample.bed did not registered correctly.');
 
-test('result', 'register sv from tsv test');
+test('result', 'register sv from bed test');
 
 
 

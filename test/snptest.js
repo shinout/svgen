@@ -11,7 +11,7 @@ var snpgen = new SVGenerator({
   svchrom : 'sv_test'
 });
 
-snpgen.registerSVFromTSVFile(__dirname + '/withSNP.tsv')
+snpgen.registerSVFromBEDFile(__dirname + '/withSNP.bed')
 
 test('equal', snpgen.snps.length, 4, 'invalid count: SNPs');
 test('result', 'SNP register test');

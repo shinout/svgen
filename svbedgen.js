@@ -89,7 +89,7 @@ function main() {
       var start = randomInt(endpos - len -1);
 
       if (svgen.registerSV(SVConst[type], start, len)) {
-        output(type, start, len, rname);
+        output(type, start, rname, len);
         k++;
       }
       counter++;
@@ -130,7 +130,7 @@ function main() {
 
       if (!snps[pos]) {
         snps[pos] = true;
-        output(type, pos, to, rname);
+        output(type, pos, rname, to);
         j++;
       }
       counter++;
@@ -138,12 +138,15 @@ function main() {
   });
 }
 
-const output = function() {
-  console.log(Array.prototype.join.call(arguments, '\t'));
+const output = function(type, pos, rname, op) {
+  var end = (type == 'SNP') 
+    ? Number(pos) + 1
+    : Number(pos) + Number(op);
+  }
+  //console.log(Array.prototype.join.call(arguments, '\t'));
+  console.log([rname, pos, end, type, op].join('\t'));
 }
 
 if (process.argv[1] === __filename) {
   main();
 }
-
-
