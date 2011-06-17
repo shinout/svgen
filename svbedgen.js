@@ -16,19 +16,21 @@ const randomInt = function(max) {
 }
 
 
-function stderr(v) {
-  process.stderr.write(v + '\n');
-}
-
-
 function main() {
+  const p = new ArgParser().addOptions([]).addValueOptions(['snprate', 'sv', 'rnames', 'svlen', 'svdev', 'exename']).parse();
+
   function showUsage() {
-    const cmd = 'node ' + require('path').basename(process.argv[1]);
-    stderr('[synopsis]');
-    stderr(cmd + ' [--snprate=10000] [--sv=20000] [--rnames=false] [--svlen=1500] [--svdev=300] <fasta file>');
+    const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
+    console.error('[synopsis]');
+    console.error('\t' + cmd + ' <fasta file>');
+    console.error('[options]');
+    console.error('\t--snprate\trate to insert SNP default:10000');
+    console.error('\t--sv\tthe number of SVs default:20000');
+    console.error('\t--rnames\tdesignate rnames to use (comma separated). default null(using ALL rnames)');
+    console.error('\t--svlen\tmean length of SVs. default:1500');
+    console.error('\t--svdev\tstddev of SVs. default:300');
   }
 
-  const p = new ArgParser().addOptions([]).addValueOptions(['snprate', 'sv', 'rnames', 'svlen', 'svdev']).parse();
 
   /* get arguments, options */
   const fastafile = p.getArgs(0);
@@ -47,12 +49,12 @@ function main() {
   const svnum   = numberize(p.getOptions('sv')) || 20000;
   const svlen   = numberize(p.getOptions('svlen')) || 1500;
   const svdev   = numberize(p.getOptions('svdev')) || 300;
-  stderr('calculating fasta');
+  console.error('calculating fasta');
   const fastas = new FASTAReader(fastafile);
   const rnames  = (p.getOptions('rnames')) ? p.getOptions('rnames').split(',') : Object.keys(fastas.result);
 
 
-  stderr('calculating total bases');
+  console.error('calculating total bases');
   /* calculate total bases */
   const ends  = {};
   const total = (function() {
@@ -68,7 +70,7 @@ function main() {
 
 
 
-  stderr('generating SV registration data');
+  console.error('generating SV registration data');
   /* generate SV registration data */
   var svcount = 0;   // the number of svs that have already added
   rnames.forEach(function(rname, i) {
@@ -96,7 +98,7 @@ function main() {
     }
   });
 
-  stderr('generating SNP registration data');
+  console.error('generating SNP registration data');
   /* generate SNP registration data */
   const snpnum = Math.floor(total / snprate);
   var snpcount = 0;
@@ -142,7 +144,7 @@ const output = function(type, pos, rname, op) {
   var end = (type == 'SNP') 
     ? Number(pos) + 1
     : Number(pos) + Number(op);
-  }
+
   //console.log(Array.prototype.join.call(arguments, '\t'));
   console.log([rname, pos, end, type, op].join('\t'));
 }

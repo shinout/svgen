@@ -22,12 +22,22 @@ const spawn       = require('child_process').spawn;
  *
  */
 function main() {
+  const p = new AP().addValueOptions(['chrom', 'c', 'name', 'n', 'exename']).addOptions(['nonstop', 'test']).parse();
+
+
   function showUsage() {
-    gen.error('Usage: ' + require('path').basename(process.argv[0]) + ' ' + process.argv[1] + ' [--test] [--nonstop] [-c|--chrom <chrom name>] [-n|--name <sv chrom name>] <bed file> <fasta file>');
-    gen.error('bed file columns: rname\tstart-position\tend-position\tSVtype(DEL|INS|INV|SNP)\tlength');
+    const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
+    console.error('[usage]');
+    console.error('\t' + cmd + ' <bed file> <fasta file>');
+    console.error('[options]');
+    console.error('\t' + '--test\tdryrun. default: null');
+    console.error('\t' + '--nonstop\t even if there\'s no registered SVs, execute making a new sequence. defualt: null');
+    console.error('\t' + '--chrom\t sequence id in the given file to make SVs and SNPs, default: all (all sequences in the given file)');
+    console.error('\t' + '--name | -n\t new chromosome name with SVs and SNPs, default: (the same as original sequences)');
+    console.error('[bed file columns]');
+    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|SNP)\tlength');
   }
 
-  var p = new AP().addValueOptions(['chrom', 'c', 'name', 'n']).addOptions(['nonstop', 'test']).parse();
 
   var bed = p.getArgs(0);
   if (!bed) {
@@ -41,7 +51,7 @@ function main() {
     process.exit();
   }
   if (! require('path').existsSync(fastafile)) {
-    gen.error(fastafile+ ': No such file.');
+    console.error(fastafile+ ': No such file.');
     process.exit();
   }
 
@@ -86,7 +96,7 @@ function gen(op) {
   })();
 
   if (!(op.rfeader instanceof FASTAReader) && !require('path').existsSync(this.path)) {
-    gen.error('"'+this.path + '": No such file.');
+    console.error('"'+this.path + '": No such file.');
     return;
   }
 
@@ -97,12 +107,12 @@ function gen(op) {
   }
   catch (e){
     console.error(e);
-    gen.error(this.path + 'does not seem to be FASTA format.');
+    console.error(this.path + 'does not seem to be FASTA format.');
     return;
   }
 
   if (! this.fastas.result[this.chrom]) {
-    gen.error('"'+this.chrom+ '" is not found in ' + this.path);
+    console.error('"'+this.chrom+ '" is not found in ' + this.path);
     return;
   }
 
@@ -156,17 +166,17 @@ gen.prototype.registerSV= function(type, start, len, op) {
   start = Number(start);
   len   = Number(len);
   if (typeof type != 'number' ||  type > SVConst.types.length || type < 0) {
-    gen.error('SV type error. type must be adequate Number.');
+    console.error('SV type error. type must be adequate Number.');
     return false;
   }
 
   if (start <= 0) {
-    gen.error('SV['+SVConst.types[type]+']: start must be positive.');
+    console.error('SV['+SVConst.types[type]+']: start must be positive.');
     return false;
   }
 
   if (len <= 0) {
-    gen.error('SV['+SVConst.types[type]+']: length must be positive.');
+    console.error('SV['+SVConst.types[type]+']: length must be positive.');
     return false;
   }
 
@@ -175,18 +185,18 @@ gen.prototype.registerSV= function(type, start, len, op) {
 
   /* check range */
   if (idxStart < 0 || this.endIdx - this.startIdx < idxStart) {
-    gen.error('SV['+SVConst.types[type]+']: position of '+start+' is out of range.');
+    console.error('SV['+SVConst.types[type]+']: position of '+start+' is out of range.');
     return false;
   }
   if (idxEnd < 0 || this.endIdx - this.startIdx < idxEnd) {
-    gen.error('SV['+SVConst.types[type]+']: position of '+start+' with length('+len+') is out of range.');
+    console.error('SV['+SVConst.types[type]+']: position of '+start+' with length('+len+') is out of range.');
     return false;
   }
 
 
   /* check duplication */
   if (this.checkDuplication(idxStart, idxEnd)) {
-    gen.error('SV['+SVConst.types[type]+']: position of '+start+' is duplicated.');
+    console.error('SV['+SVConst.types[type]+']: position of '+start+' is duplicated.');
     return false;
   }
   var svdata = { type: type, start: idxStart, end: idxEnd, pos: start, len: len};
@@ -196,6 +206,10 @@ gen.prototype.registerSV= function(type, start, len, op) {
     });
   }
   
+  /* check NNNN */
+  var seq = this.fastas.fetch(this.chrom, start, len);
+  if (seq.match('N')) return false;
+
   this.svs.push(svdata);
 
   this.svs.sort(function(a,b){
@@ -252,7 +266,7 @@ gen.prototype.registerInv= function(start, len) { return this.registerSV(SVConst
  */
 gen.prototype.registerSVFromBEDFile = function(bed) {
   if (! require('path').existsSync(bed)) {
-    gen.error(bed + ': No such file.');
+    console.error(bed + ': No such file.');
     return false;
   }
 
@@ -263,7 +277,7 @@ gen.prototype.registerSVFromBEDFile = function(bed) {
     var svinfo = line.split('\t');
 
     if (svinfo[0] != this.chrom) {
-      //gen.error(svinfo[0] + ' : different chromosome type. skip registration.');
+      //console.error(svinfo[0] + ' : different chromosome type. skip registration.');
       return;
     }
     var svtype = (svinfo[3] == 'SNP') ? 'SNP' : SVConst[svinfo[3]];
@@ -301,12 +315,12 @@ gen.prototype.registerSVFromBEDFile = function(bed) {
 gen.prototype.registerSNP = function(pos, to) { 
   to = Number(to);
   if (pos <= 0) {
-    gen.error('SNP: start must be positive.');
+    console.error('SNP: start must be positive.');
     return false;
   }
 
   if (to < 1 || 5 < to) {
-    gen.error('SNP: "to" must be in 1 to 5.');
+    console.error('SNP: "to" must be in 1 to 5.');
     return false;
   }
 
@@ -314,7 +328,7 @@ gen.prototype.registerSNP = function(pos, to) {
 
   /* check range */
   if (idxStart < this.startIdx || this.endIdx < idxStart) {
-    gen.error('SNP: position of '+ pos +' is out of range.');
+    console.error('SNP: position of '+ pos +' is out of range.');
     return false;
   }
 
@@ -392,18 +406,9 @@ gen.prototype.genotype = function(wstream, dryrun) {
   //fold.stdout.pipe(out);
 
   svstream.on('error', function(e){
-    gen.error(e);
+    console.error(e);
   });
 }
-
-/**
- * output error
- *
- */
-gen.error = function(v) {
-  process.stderr.write(v+"\n");
-}
-
 
 module.exports = gen;
 
