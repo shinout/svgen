@@ -22,7 +22,7 @@ const spawn       = require('child_process').spawn;
  *
  */
 function main() {
-  const p = new AP().addValueOptions(['chrom', 'c', 'name', 'n', 'exename']).addOptions(['nonstop', 'test']).parse();
+  const p = new AP().addValueOptions(['chrom', 'c', 'name', 'n', 'json', 'exename']).addOptions(['nonstop', 'test']).parse();
 
 
   function showUsage() {
@@ -34,6 +34,7 @@ function main() {
     console.error('\t' + '--nonstop\t even if there\'s no registered SVs, execute making a new sequence. defualt: null');
     console.error('\t' + '--chrom\t sequence id in the given file to make SVs and SNPs, default: all (all sequences in the given file)');
     console.error('\t' + '--name | -n\t new chromosome name with SVs and SNPs, default: (the same as original sequences)');
+    console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
     console.error('[bed file columns]');
     console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|SNP)\tlength');
   }
@@ -59,7 +60,7 @@ function main() {
 
   var svchrom = p.getOptions('name') || p.getOptions('n') || chrom;
 
-  var svgen   = new gen({path: fastafile, chrom: chrom, svchrom: svchrom});
+  var svgen   = new gen({path: fastafile, chrom: chrom, svchrom: svchrom, json: p.getOptions('json')});
   if (!svgen.valid) {
     process.exit();
   }
@@ -84,6 +85,7 @@ function main() {
  *    {String} chrom      : fasta id (if null, then set first fasta id)
  *    {String} svchrom    : sv fasta id (if null, then set to the same as chrom)
  *    {Number} bufferSize : for each buffer size to get fasta data (default 40960)
+ *    {String} json       : fasta summary file to shortcut calculation
  *
  * @return
  *  {gen} object.
@@ -100,7 +102,8 @@ function gen(op) {
     return;
   }
 
-  this.fastas = (op.freader instanceof FASTAReader) ? op.freader : new FASTAReader(this.path);
+  var json = op.json && require('path').existsSync(op.json) ? JSON.parse(fs.readFileSync(op.json).toString()) : false;
+  this.fastas = (op.freader instanceof FASTAReader) ? op.freader : new FASTAReader(this.path, json);
 
   try {
     this.chrom = op.chrom || Object.keys(this.fastas.result)[0];
@@ -193,12 +196,19 @@ gen.prototype.registerSV= function(type, start, len, op) {
     return false;
   }
 
-
   /* check duplication */
   if (this.checkDuplication(idxStart, idxEnd)) {
     console.error('SV['+SVConst.types[type]+']: position of '+start+' is duplicated.');
     return false;
   }
+
+  /* check NNNN */
+  if (this.fastas.hasN(this.chrom, start, len)) {
+    console.error('SV['+SVConst.types[type]+']: position of '+start+' is region of NNNNNNNNNN.');
+    return false;
+  }
+
+
   var svdata = { type: type, start: idxStart, end: idxEnd, pos: start, len: len};
   if (typeof op == "object") {
     Object.keys(op).forEach(function(k) {
@@ -206,10 +216,6 @@ gen.prototype.registerSV= function(type, start, len, op) {
     });
   }
   
-  /* check NNNN */
-  var seq = this.fastas.fetch(this.chrom, start, len);
-  if (seq.match('N')) return false;
-
   this.svs.push(svdata);
 
   this.svs.sort(function(a,b){

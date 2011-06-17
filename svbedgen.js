@@ -7,8 +7,8 @@ const SVConst     = require('./SVConst');
 const SVGenerator = require('./SVGenerator');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 
-const numberize = function(v) {
-  return (isNaN(Number(v))) ? null : Number(v);
+const numberize = function(v, _default) {
+  return (v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
 }
 
 const randomInt = function(max) {
@@ -17,7 +17,7 @@ const randomInt = function(max) {
 
 
 function main() {
-  const p = new ArgParser().addOptions([]).addValueOptions(['snprate', 'sv', 'rnames', 'svlen', 'svdev', 'exename']).parse();
+  const p = new ArgParser().addOptions([]).addValueOptions(['snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename']).parse();
 
   function showUsage() {
     const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
@@ -29,6 +29,7 @@ function main() {
     console.error('\t--rnames\tdesignate rnames to use (comma separated). default null(using ALL rnames)');
     console.error('\t--svlen\tmean length of SVs. default:1500');
     console.error('\t--svdev\tstddev of SVs. default:300');
+    console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
   }
 
 
@@ -45,12 +46,20 @@ function main() {
   }
 
 
-  const snprate = numberize(p.getOptions('snprate')) || 10000;
-  const svnum   = numberize(p.getOptions('sv')) || 20000;
-  const svlen   = numberize(p.getOptions('svlen')) || 1500;
-  const svdev   = numberize(p.getOptions('svdev')) || 300;
+  const snprate = numberize(p.getOptions('snprate'),10000);
+  const svnum   = numberize(p.getOptions('sv'),20000);
+  const svlen   = numberize(p.getOptions('svlen'), 1500);
+  const svdev   = numberize(p.getOptions('svdev'), 300);
   console.error('calculating fasta');
-  const fastas = new FASTAReader(fastafile);
+  const json = (function() {
+    var ret = p.getOptions('json');
+    if (ret) {
+      ret = JSON.parse(fs.readFileSync(ret).toString());
+    }
+    return ret;
+  })();
+
+  const fastas = new FASTAReader(fastafile, json);
   const rnames  = (p.getOptions('rnames')) ? p.getOptions('rnames').split(',') : Object.keys(fastas.result);
 
 
@@ -100,6 +109,9 @@ function main() {
 
   console.error('generating SNP registration data');
   /* generate SNP registration data */
+  if (snprate == 0) {
+    return;
+  }
   const snpnum = Math.floor(total / snprate);
   var snpcount = 0;
 
