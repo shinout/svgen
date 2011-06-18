@@ -6,6 +6,7 @@ const random      = new XORShift(new Date().getTime(), true); // function
 const SVConst     = require('./SVConst');
 const SVGenerator = require('./SVGenerator');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
+const dna         = require('./lib/dna');
 
 const numberize = function(v, _default) {
   return (v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
@@ -17,18 +18,29 @@ const randomInt = function(max) {
 
 
 function main() {
-  const p = new ArgParser().addOptions([]).addValueOptions(['snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename']).parse();
+  const p = new ArgParser().addOptions([]).addValueOptions([
+    'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename',
+    'inslen', 'insdev', 'dellen', 'deldev', 'invlen', 'invdev', 'duplen', 'dupdev'
+  ]).parse();
 
   function showUsage() {
     const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
     console.error('[synopsis]');
     console.error('\t' + cmd + ' <fasta file>');
     console.error('[options]');
-    console.error('\t--snprate\trate to insert SNP default:10000');
-    console.error('\t--sv\tthe number of SVs default:20000');
+    console.error('\t--snprate\treciprocal rate to insert SNP default:10000 (1/10000). if 0, then no SNPs are registered.');
+    console.error('\t--sv\tthe number of SVs to register. default:10000');
     console.error('\t--rnames\tdesignate rnames to use (comma separated). default null(using ALL rnames)');
     console.error('\t--svlen\tmean length of SVs. default:1500');
     console.error('\t--svdev\tstddev of SVs. default:300');
+    console.error('\t--inslen\tmean length of insertions. default: the same as "svlen" option');
+    console.error('\t--insdev\tstddev of insertions. default: the same as "svlen" option');
+    console.error('\t--dellen\tmean length of deletions. default: the same as "svlen" option');
+    console.error('\t--deldev\tstddev of deletions. default: the same as "svlen" option');
+    console.error('\t--invlen\tmean length of inversions. default: the same as "svlen" option');
+    console.error('\t--invdev\tstddev of inversions. default: the same as "svlen" option');
+    console.error('\t--duplen\tmean length of inversions. default: 50');
+    console.error('\t--dupdev\tstddev of inversions. default: 20');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
   }
 
@@ -47,9 +59,24 @@ function main() {
 
 
   const snprate = numberize(p.getOptions('snprate'),10000);
-  const svnum   = numberize(p.getOptions('sv'),20000);
+  const svnum   = numberize(p.getOptions('sv'),10000);
   const svlen   = numberize(p.getOptions('svlen'), 1500);
   const svdev   = numberize(p.getOptions('svdev'), 300);
+
+  const lens = {
+    INS: numberize(p.getOptions('inslen'), svlen),
+    DEL: numberize(p.getOptions('dellen'), svlen),
+    INV: numberize(p.getOptions('invlen'), svlen),
+    DUP: numberize(p.getOptions('duplen'), 50)
+  };
+
+  const devs = {
+    INS: numberize(p.getOptions('insdev'), svdev),
+    DEL: numberize(p.getOptions('deldev'), svdev),
+    INV: numberize(p.getOptions('invdev'), svdev),
+    DUP: numberize(p.getOptions('dupdev'), 20)
+  };
+
   console.error('calculating fasta');
   const json = (function() {
     var ret = p.getOptions('json');
@@ -95,12 +122,23 @@ function main() {
 
     var k = 0, counter = 0;
     while( k < localSVCount && counter < LIMIT) {
-      var type  = SVConst.types[randomInt(3)];
-      var len   = Math.floor(nrand(svlen, svdev, random) + 0.5);
+      var type  = SVConst.types[randomInt(4)];
+      var len   = Math.floor(nrand(lens[type], devs[type], random) + 0.5);
       var start = randomInt(endpos - len -1);
+      var extra = (function() {
+        if ( type == 'INS') {
+          return dna.getRandomFlagment(len);
+        }
+        else if ( type == 'DUP') {
+          return SVGenerator.getTandemDuplicationRepeatNumber();
+        }
+        else {
+          return '*';
+        }
+      })();
 
       if (svgen.registerSV(SVConst[type], start, len)) {
-        output(type, start, rname, len);
+        output(type, start, rname, len, extra);
         k++;
       }
       counter++;
@@ -144,7 +182,7 @@ function main() {
 
       if (!snps[pos]) {
         snps[pos] = true;
-        output(type, pos, rname, to);
+        output(type, pos, rname, 1, to);
         j++;
       }
       counter++;
@@ -152,13 +190,13 @@ function main() {
   });
 }
 
-const output = function(type, pos, rname, op) {
+const output = function(type, pos, rname, len, extra) {
   var end = (type == 'SNP') 
     ? Number(pos) + 1
-    : Number(pos) + Number(op);
+    : Number(pos) + Number(len);
 
   //console.log(Array.prototype.join.call(arguments, '\t'));
-  console.log([rname, pos, end, type, op].join('\t'));
+  console.log([rname, pos, end, type, len, extra].join('\t'));
 }
 
 if (process.argv[1] === __filename) {

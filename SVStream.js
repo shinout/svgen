@@ -125,6 +125,9 @@ SVStream.prototype.makeSV = function(sv, chunk, end) {
     case SVConst.INV:
       this.emitDataWithoutLF(SVConst.makeInversion(sv, str, this.pos));
       break;
+    case SVConst.DUP:
+      this.emitDataWithoutLF(SVConst.makeTandemDuplication(sv, str, this.pos));
+      break;
     default:
       // err
       break;

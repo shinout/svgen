@@ -1,10 +1,20 @@
 const SVConst     = require('./SVConst');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
+const nrand       = require('./lib/normal_random');
+const XORShift    = require('./lib/xorshift');
+const random      = new XORShift(new Date().getTime(), true); // function
 const AP          = require('argparser');
 const LS          = require('linestream');
 const fs          = require('fs');
 const spawn       = require('child_process').spawn;
+
+const REPEAT_MEAN   = 40;
+const REPEAT_STDDEV = 20;
+
+const numberize = function(v, _default, allow_zero) {
+  return ((allow_zero && v == 0) || v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
+}
 
 /*
  * node SVGenerator.js
@@ -36,7 +46,7 @@ function main() {
     console.error('\t' + '--name | -n\t new chromosome name with SVs and SNPs, default: (the same as original sequences)');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
     console.error('[bed file columns]');
-    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|SNP)\tlength');
+    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|SNP)\tlength');
   }
 
 
@@ -255,6 +265,22 @@ gen.prototype.registerIns= function(start, len, flagment) {
 }
 
 /**
+ * register tandem duplication
+ *
+ * @param start      : base position (1-base start) left side will of which be tandem-duplicated.
+ * @param length     : duplication length
+ * @param repeat_num : the number of repeats.
+ */
+gen.prototype.registerDup = function(start, len, repeat_num) {
+  var repeat_num = gen.getTandemDuplicationRepeatNumber(repeat_num);
+  return this.registerSV(SVConst.DUP, start, len, {repeat_num: repeat_num});
+}
+
+gen.getTandemDuplicationRepeatNumber = function(repeat_num) {
+  return numberize(repeat_num, Math.max(Math.floor(nrand(REPEAT_MEAN, REPEAT_STDDEV, random)),2) , false);
+}
+
+/**
  * register inversion
  *
  * @param start  : base position (1-base start) left side will of which be inverted.
@@ -290,16 +316,19 @@ gen.prototype.registerSVFromBEDFile = function(bed) {
     var result;
     switch (svtype) {
       case 'SNP':
-        result = this.registerSNP(svinfo[1], svinfo[4]);
+        result = this.registerSNP(svinfo[1], svinfo[5]);
         break;
       case SVConst.DEL:
         result = this.registerDel(svinfo[1], svinfo[4]);
         break;
       case SVConst.INS: 
-        result = this.registerIns(svinfo[1], svinfo[4]);
+        result = this.registerIns(svinfo[1], svinfo[4], svinfo[5]);
         break;
       case SVConst.INV: 
         result = this.registerInv(svinfo[1], svinfo[4]);
+        break;
+      case SVConst.DUP: 
+        result = this.registerDup(svinfo[1], svinfo[4], svinfo[5]);
         break;
       default:
         result = false;

@@ -4,6 +4,7 @@ var a = {
   DEL   : 0,
   INS   : 1,
   INV   : 2,
+  DUP   : 3,
   types : [],
   BASES : BASES
 }
@@ -11,6 +12,7 @@ var a = {
 a.types[a.DEL] = 'DEL';
 a.types[a.INS] = 'INS';
 a.types[a.INV] = 'INV';
+a.types[a.DUP] = 'DUP';
 
 /**
  * SVConst.makeDeletion
@@ -48,6 +50,24 @@ a.makeInversion = function(sv, str, pos) {
   return str.slice(0, sv.start - pos) + 
   dna.complStrand(str.slice(sv.start-pos, sv.end-pos)).split('').reverse().join('') + 
   str.slice(sv.end - pos);
+}
+/**
+ * SVConst.makeTandemDuplication
+ * make tandem duplication to str with sv object
+ * @param object  sv   : sv object (must have 'start' and 'end' keys)
+ * @param string  str  : original DNA sequence part of which to be tandem duplicated
+ * @param number  pos  : position (char index)
+ * @return string : DNA sequence
+ */
+a.makeTandemDuplication = function(sv, str, pos) {
+  return str.slice(0, sv.start - pos) + (function(){
+    ret = "";
+    var repeat_seq = str.slice(sv.start-pos, sv.end-pos);
+    for (var i=0; i < sv.repeat_num; i++) {
+      ret += repeat_seq;
+    }
+    return ret;
+  })() + str.slice(sv.end - pos);
 }
 
 /**

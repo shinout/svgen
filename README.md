@@ -23,12 +23,19 @@ Overview
     sg.registerIns(123499, 200); // insertion at left side of 123499 with a random sequence (length: 200bp)
     sg.registerIns(123499, 7, 'ACCTGTA'); // you can insert your original flagment
     sg.registerInv(9876543, 624); // inversion at 9876543 with a random sequence (624bp)
+    sg.registerDup(34091822, 30); // inversion at 34091822
 
     sg.genotype(); // then result will come up to your STDOUT
 #### command line ####
-    node SVGenerator.js sv.bed --chrom chr11 --name sv_chr11 sample.fasta  > chr11_sv.fasta
+    node SVGenerator.js sv.bed --chrom chr11 --name sv_chr11 sample.bed sample.fasta  > chr11_sv.fasta
 
-    # --chrom or -c : chromosome name in FASTA
-    # --name or -n  : new name of chromosome with sv
-    # argv 1        : BED file (SV information in it)
-    # argv 2        : FASTA file to make sv from
+[usage]
+    svgen <bed file> <fasta file>
+[options]
+    --test  dryrun. default: null
+    --nonstop  even if there's no registered SVs, execute making a new sequence. defualt: null
+    --chrom  sequence id in the given file to make SVs and SNPs, default: all (all sequences in the given file)
+    --name | -n  new chromosome name with SVs and SNPs, default: (the same as original sequences)
+    --json <json file>   fasta summary file to shortcut calculation.
+[bed file columns]
+    rname start-position  end-position  SVtype(DEL|INS|INV|DUP|SNP) length
