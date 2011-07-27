@@ -48,7 +48,7 @@ function main() {
   }
 
 
-  /* get arguments, options */
+  /* get fasta */
   const fastafile = p.getArgs(0);
   if (!fastafile) {
     showUsage();
@@ -61,6 +61,20 @@ function main() {
   }
 
 
+  console.error('collecting FASTA information');
+  // config data in JSON format for FASTAReader
+  const json = (function() {     var ret = p.getOptions('json');
+    if (ret) {
+      ret = JSON.parse(fs.readFileSync(ret).toString());
+    }
+    return ret;
+  })();
+
+  const fastas  = new FASTAReader(fastafile, json);
+  const rnames  = (p.getOptions('rnames')) ? p.getOptions('rnames').split(',') : Object.keys(fastas.result);
+
+  
+  /* get options */
   const snprate = numberize(p.getOptions('snprate'),10000);
   const svnum   = numberize(p.getOptions('sv'),10000);
   const svlen   = numberize(p.getOptions('svlen'), 1500);
@@ -82,26 +96,8 @@ function main() {
     TRA: numberize(p.getOptions('tradev'), svdev)
   };
 
-  console.error('calculating fasta');
-  const json = (function() {
-    var ret = p.getOptions('json');
-    if (ret) {
-      ret = JSON.parse(fs.readFileSync(ret).toString());
-    }
-    return ret;
-  })();
 
-  const fastas  = new FASTAReader(fastafile, json);
-  const rnames  = (p.getOptions('rnames')) ? p.getOptions('rnames').split(',') : Object.keys(fastas.result);
-
-  const tselect = new WSelection({
-    INS : (lens.INS > 0) ? 1 : 0, 
-    DEL : (lens.DEL > 0) ? 1 : 0, 
-    INV : (lens.INV > 0) ? 1 : 0, 
-    DUP : (lens.DUP > 0) ? 1 : 0, 
-    TRA : (lens.TRA > 0) ? 1 : 0
-  }, random);
-
+  // weighted selection of rnames
   const rselect = new WSelection((function(){
     var ret = {};
     rnames.forEach(function(rname) {
@@ -111,46 +107,49 @@ function main() {
   })() , random); 
 
 
-  console.error('calculating total bases');
-  /* calculate total bases */
-  const ends  = {};
-  const total = (function() {
-    var t = 0;
-    rnames.forEach(function(rname) {
-      const fasta = fastas.result[rname];
-      var end = fasta.getEndPos();
-      t += end;
-      ends[rname] = end;
-    });
-    return t;
-  })();
-
-
 
   console.error('generating SV registration data');
-  /* generate SV registration data */
-  var svcount = 0;   // the number of svs that have already added
-  rnames.forEach(function(rname, i) {
+  // weighted selection of SV types
+  const tselect = new WSelection({
+    INS : (lens.INS > 0) ? 1 : 0, 
+    DEL : (lens.DEL > 0) ? 1 : 0, 
+    INV : (lens.INV > 0) ? 1 : 0, 
+    DUP : (lens.DUP > 0) ? 1 : 0, 
+    TRA : (lens.TRA > 0) ? 1 : 0
+  }, random);
+
+  // frequency of SV events for each rname
+  const sv_counts = {};
+  var rname_rand;
+  for (var i=0; i<svnum; i++) {
+    rname_rand = rselect.random();
+    if (!sv_counts[rname_rand]) {
+      sv_counts[rname_rand] = 0;
+    }
+    sv_counts[rname_rand]++;
+  }
+
+  rnames.forEach(function(rname) {
+    var cnt = sv_counts[rname] || 0;
     const fasta        = fastas.result[rname];
     const svgen        = new SVGenerator({freader: fastas, chrom: rname});
     const endpos       = fasta.getEndPos();
-    const localSVCount = (rnames.length == i+1)
-      ? svnum - svcount 
-      : parseInt(svnum * endpos / total);
-    const LIMIT = localSVCount * 30;
+    const LIMIT = cnt * 30;
 
-    svcount += localSVCount;
-
-    var k = 0, counter = 0;
-    while( k < localSVCount && counter < LIMIT) {
+    for (var i=0, e=0; i<cnt && e<LIMIT; i++) {
       var type  = tselect.random();
       var len   = Math.floor(nrand(lens[type], devs[type], random) + 0.5);
+      if (len < 1) {
+        e++;
+        i--;
+        continue;
+      }
       var start = randomInt(endpos - len -1);
       var extra = (function() {
-        if ( type == 'INS') {
+        switch (type) {
+        case 'INS':
           return dna.getRandomFragment(len);
-        }
-        else if ( type == 'TRA') {
+        case 'TRA':
           // get fragment from a random position.
           var rn, fa, st;
           do {
@@ -159,20 +158,20 @@ function main() {
             st = randomInt(fa.getEndPos() - len - 1);
           } while (fastas.hasN(rn, st, len)); // TODO escape loop
           return rn + ':' + st + ':' + len;
-        }
-        else if ( type == 'DUP') {
+        case 'DUP':
           return SVGenerator.getTandemDuplicationRepeatNumber();
-        }
-        else {
+        default:
           return '*';
         }
       })();
 
       if (svgen.registerSV(SVConst[type], start, len)) {
         output(type, start, rname, len, extra);
-        k++;
       }
-      counter++;
+      else {
+        e++;
+        i--;
+      }
     }
   });
 
@@ -181,42 +180,48 @@ function main() {
   if (snprate == 0) {
     return;
   }
-  const snpnum = Math.floor(total / snprate);
-  var snpcount = 0;
+
+  // weighted selection of SNP types
+  const snpselect = new WSelection({
+    1 : 1000,
+    2 : 1000,
+    3 : 1000,
+    4 : 3,
+    5 : 3 
+  });
+
+  // frequency of SNP events for each rname
+  const snp_counts  = {};
+  const snp_total   = rselect.total() / snprate;
+  // var rname_rand; // the same variable exists above.
+  for (var i=0; i<snp_total; i++) {
+    rname_rand = rselect.random();
+    if (!snp_counts[rname_rand]) {
+      snp_counts[rname_rand] = 0;
+    }
+    snp_counts[rname_rand]++;
+  }
 
   rnames.forEach(function(rname, i) {
-    var snps = {};
+    var cnt    = snp_counts[rname] || 0;
+    var elimit = cnt * 30;
+    var snps   = {};
     const fasta        = fastas.result[rname];
     const svgen        = new SVGenerator({freader: fastas, chrom: rname});
     const endpos       = fasta.getEndPos();
-    const localSNPCount = (rnames.length == i+1)
-      ? snpnum - snpcount 
-      : parseInt(snpnum * endpos / total);
-
-    const LIMIT = localSNPCount * 30;
-    snpcount += localSNPCount;
-
-    var j = 0, counter = 0;
-    while( j < localSNPCount && counter < LIMIT) {
+    for (var i=0, e=0; i<cnt && e<elimit; i++) {
       var type  = 'SNP';
-      var to    = (function() {
-        var v = randomInt(1001);
-        if      (v < 333)  return 1;
-        else if (v < 666)  return 2;
-        else if (v < 999)  return 3;
-        else if (v == 999) return 4;
-        else               return 5;
-      })();
-      var pos   = randomInt(ends[rname] -1) + 1;
-
-      /* convert position, rname */
+      var extra = snpselect.random(); 
+      var pos   = randomInt(endpos -1) + 1;
 
       if (!snps[pos]) {
-        snps[pos] = true;
-        output(type, pos, rname, 1, to);
-        j++;
+        snps[pos] = 1;
+        output(type, pos, rname, 1, extra);
       }
-      counter++;
+      else {
+        e++;
+        i--;
+      }
     }
   });
 }
