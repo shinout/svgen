@@ -46,7 +46,7 @@ function main() {
     console.error('\t' + '--name | -n\t new chromosome name with SVs and SNPs, default: (the same as original sequences)');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
     console.error('[bed file columns]');
-    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|SNP)\tlength');
+    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|TRA|SNP)\tlength');
   }
 
 
@@ -249,19 +249,19 @@ gen.prototype.registerDel= function(start, len) { return this.registerSV(SVConst
  *
  * @param start    : base position (1-base start) left side will of which be inserted.
  * @param length   : insertion length
- * @param flagment : insertion flagment. if incompatible with length, then trimmed.
+ * @param fragment : insertion fragment. if incompatible with length, then trimmed.
  */
-gen.prototype.registerIns= function(start, len, flagment) {
-  if (!flagment) {
-    flagment = dna.getRandomFlagment(len);
+gen.prototype.registerIns= function(start, len, fragment) {
+  if (!fragment) {
+    fragment = dna.getRandomFragment(len);
   }
-  else if (flagment.length < len) {
-    flagment += dna.getRandomFlagment(len - flagment.length);
+  else if (fragment.length < len) {
+    fragment += dna.getRandomFragment(len - fragment.length);
   }
-  else if (flagment.length > len) {
-    flagment = flagment.slice(0, len);
+  else if (fragment.length > len) {
+    fragment = fragment.slice(0, len);
   }
-  return this.registerSV(SVConst.INS, start, len, {flagment: flagment}); 
+  return this.registerSV(SVConst.INS, start, len, {fragment: fragment}); 
 }
 
 /**
@@ -322,6 +322,7 @@ gen.prototype.registerSVFromBEDFile = function(bed) {
         result = this.registerDel(svinfo[1], svinfo[4]);
         break;
       case SVConst.INS: 
+      case SVConst.TRA:  // the same process as INS
         result = this.registerIns(svinfo[1], svinfo[4], svinfo[5]);
         break;
       case SVConst.INV: 

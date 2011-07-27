@@ -19,18 +19,18 @@ test('ok', e.match(/such file/), 'No error occurred when no file designated.');
 test('result', 'setting up test');
 
 
-/* random flagment test */
-var DNA = dna.getRandomFlagment(1000);
+/* random fragment test */
+var DNA = dna.getRandomFragment(1000);
 var T   = DNA.length - DNA.split('T').join('').length;
 var C   = DNA.length - DNA.split('C').join('').length;
 var A   = DNA.length - DNA.split('A').join('').length;
 var G   = DNA.length - DNA.split('G').join('').length;
 
 //console.log( Math.max(T,C,A,G) / Math.min(T,C,A,G));
-test('equal', DNA.length, 1000, 'invalid length of random flagment'); 
-test('equal', T + C + A + G, 1000, 'invalid character of random flagment'); 
-test('ok', Math.max(T,C,A,G) / Math.min(T,C,A,G) < 1.5, 'invalid deviation of random flagment'); 
-test('result', 'random flagment test');
+test('equal', DNA.length, 1000, 'invalid length of random fragment'); 
+test('equal', T + C + A + G, 1000, 'invalid character of random fragment'); 
+test('ok', Math.max(T,C,A,G) / Math.min(T,C,A,G) < 1.5, 'invalid deviation of random fragment'); 
+test('result', 'random fragment test');
 
 var result = dna.complStrand('atgcATGC\nNnAATT');
 test('equal', result, 'tacgTACG\nNnTTAA', 'dna.complStrand: invalid output .');
@@ -86,17 +86,17 @@ test('ok', e && e.match(/range/), 'No error occurred when out of range is given.
 
 svgen.registerIns(201, 90);
 test('equal', svgen.svs.length, 2, 'Insertion event didn\'t registered.');
-test('equal', svgen.svs[1].flagment.length, 90, 'invalid flagment length in registerIns');
+test('equal', svgen.svs[1].fragment.length, 90, 'invalid fragment length in registerIns');
 
 svgen.registerIns(1001, 90, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
 test('equal', svgen.svs.length, 3, 'Insertion event didn\'t registered.');
-test('equal', svgen.svs[2].flagment.length, 90, 'invalid flagment length in registerIns');
-test('equal', svgen.svs[2].flagment.slice(0,20), 'AAAAAAAAAAAAAAAAAAAA', 'invalid flagment in registerIns');
+test('equal', svgen.svs[2].fragment.length, 90, 'invalid fragment length in registerIns');
+test('equal', svgen.svs[2].fragment.slice(0,20), 'AAAAAAAAAAAAAAAAAAAA', 'invalid fragment in registerIns');
 
 svgen.registerIns(10001, 10, 'TTTTTTTTTTTTTTTTTTTTTTTTTTTT');
 test('equal', svgen.svs.length, 4, 'Insertion event didn\'t registered.');
-test('equal', svgen.svs[3].flagment.length, 10, 'invalid flagment length in registerIns');
-test('equal', svgen.svs[3].flagment, 'TTTTTTTTTT', 'invalid flagment in registerIns');
+test('equal', svgen.svs[3].fragment.length, 10, 'invalid fragment length in registerIns');
+test('equal', svgen.svs[3].fragment, 'TTTTTTTTTT', 'invalid fragment in registerIns');
 
 svgen.registerInv(20877, 404);
 test('equal', svgen.svs.length, 5, 'Inversion event didn\'t registered.');
@@ -205,7 +205,7 @@ test('result', 'register sv from bed test');
 var result = SVConst.makeDeletion({start: 3, end: 9}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'atgATTGGCC', 'SVConst.makeDeletion: invalid output .');
 
-var result = SVConst.makeInsertion({start: 2, end: 6, flagment: 'TTTT'}, 'atgcATGCAATTGGCC', 0);
+var result = SVConst.makeInsertion({start: 2, end: 6, fragment: 'TTTT'}, 'atgcATGCAATTGGCC', 0);
 test('equal', result, 'atTTTTgcATGCAATTGGCC', 'SVConst.makeInsertion: invalid output .');
 
 var result = SVConst.makeInversion({start: 0, end: 4}, 'atgcATGCAATTGGCC', 0);
@@ -258,7 +258,7 @@ var svstream2 = new SVGenerator.SVStream({svs: [{
   type: SVConst.INS,
   start: 3,
   end: 3 + 5,
-  flagment: 'ctgac'
+  fragment: 'ctgac'
 }]});
 
 svstream2.on('data', function(data) {

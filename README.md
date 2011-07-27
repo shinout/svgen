@@ -21,7 +21,7 @@ Overview
 
     sg.registerDel(54001, 320); // deletion at 54001  (length: 320bp)
     sg.registerIns(123499, 200); // insertion at left side of 123499 with a random sequence (length: 200bp)
-    sg.registerIns(123499, 7, 'ACCTGTA'); // you can insert your original flagment
+    sg.registerIns(123499, 7, 'ACCTGTA'); // you can insert your original fragment
     sg.registerInv(9876543, 624); // inversion at 9876543 with a random sequence (624bp)
     sg.registerDup(34091822, 30); // inversion at 34091822
 

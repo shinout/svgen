@@ -5,6 +5,7 @@ var a = {
   INS   : 1,
   INV   : 2,
   DUP   : 3,
+  TRA   : 4,
   types : [],
   BASES : BASES
 }
@@ -13,6 +14,7 @@ a.types[a.DEL] = 'DEL';
 a.types[a.INS] = 'INS';
 a.types[a.INV] = 'INV';
 a.types[a.DUP] = 'DUP';
+a.types[a.TRA] = 'TRA';
 
 /**
  * SVConst.makeDeletion
@@ -29,13 +31,13 @@ a.makeDeletion = function(sv, str, pos) {
 /**
  * SVConst.makeInsertion
  * make insertion to str with sv object
- * @param object  sv   : sv object (must have 'start', 'end' and 'flagment' keys)
+ * @param object  sv   : sv object (must have 'start', 'end' and 'fragment' keys)
  * @param string  str  : original DNA sequence part of which to be inserted
  * @param number  pos  : insertion position (char index)
  * @return string : inserted DNA sequence
  */
 a.makeInsertion = function(sv, str, pos) {
-  return str.slice(0, sv.start - pos) + sv.flagment + str.slice(sv.start - pos);
+  return str.slice(0, sv.start - pos) + sv.fragment + str.slice(sv.start - pos);
 }
 
 /**

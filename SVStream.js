@@ -38,7 +38,7 @@ SVStream.prototype.snpize = function(chunk) {
       ret += SVConst.makeInsertion({
         start    : snp.start,
         end      : snp.start+1,
-        flagment : SVConst.BASES[Math.floor(Math.random() * 4)]
+        fragment : SVConst.BASES[Math.floor(Math.random() * 4)]
       }, str, pos);
       ins.push(snp.start);
       break;
