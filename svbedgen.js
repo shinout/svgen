@@ -40,8 +40,8 @@ function main() {
     console.error('\t--deldev <int>\tstddev of deletions. default: the same as "svlen" option');
     console.error('\t--invlen <int>\tmean length of inversions. default: the same as "svlen" option. if 0, then no inversions are registered.');
     console.error('\t--invdev <int>\tstddev of inversions. default: the same as "svlen" option');
-    console.error('\t--duplen <int>\tmean length of tandem duplications. default: 50. if 0, then no tandem duplications are registered.');
-    console.error('\t--dupdev <int>\tstddev of tandem duplications. default: 20');
+    console.error('\t--duplen <int>\tmean length of tandem duplications. default: the same as "svlen" option. if 0, then no tandem duplications are registered.');
+    console.error('\t--dupdev <int>\tstddev of tandem duplications. default: the same as "svdev" option.');
     console.error('\t--tralen <int>\tmean length of translocations. default: the same as "svlen" option. if 0, then no translocations are registered.');
     console.error('\t--tradev <int>\tstddev of translocations. default: the same as "svlen" option');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
@@ -70,7 +70,7 @@ function main() {
     INS: numberize(p.getOptions('inslen'), svlen),
     DEL: numberize(p.getOptions('dellen'), svlen),
     INV: numberize(p.getOptions('invlen'), svlen),
-    DUP: numberize(p.getOptions('duplen'), 50),
+    DUP: numberize(p.getOptions('duplen'), svlen),
     TRA: numberize(p.getOptions('tralen'), svlen)
   };
 
@@ -78,7 +78,7 @@ function main() {
     INS: numberize(p.getOptions('insdev'), svdev),
     DEL: numberize(p.getOptions('deldev'), svdev),
     INV: numberize(p.getOptions('invdev'), svdev),
-    DUP: numberize(p.getOptions('dupdev'), 20),
+    DUP: numberize(p.getOptions('dupdev'), svdev),
     TRA: numberize(p.getOptions('tradev'), svdev)
   };
 
