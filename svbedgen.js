@@ -3,7 +3,6 @@ const ArgParser   = require('argparser');
 const nrand       = require('./lib/normal_random');
 const XORShift    = require('./lib/xorshift');
 const random      = new XORShift(new Date().getTime(), true); // function
-const SVConst     = require('./SVConst');
 const SVGen       = require('./svgen');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
@@ -71,6 +70,7 @@ function main() {
     console.error('');
 
     console.error('\t** configuration for SNP.');
+    console.error('\t* for simplicity, only single nucleotide alteration is supported.');
     console.error('\t--snprate\treciprocal rate to insert SNP default:10000 (1/10000). if 0, then no SNPs are registered.');
     console.error('');
 
@@ -199,7 +199,7 @@ function main() {
             rn = rselect.random();
             fa = fastas.result[rn];
             st = randomInt(fa.getEndPos() - len - 1);
-            extra_canditate = rn + ':' + st + ':' + len;
+            extra_canditate = rn + ':' + st;
           } while (!SVGen.valid.TRA(fastas, rname, start, len, extra_canditate)); // TODO escape loop
           return extra_canditate;
         case 'DUP':
@@ -229,11 +229,9 @@ function main() {
 
   // weighted selection of SNP types
   const snpselect = new WSelection({
-    1 : 1000,
-    2 : 1000,
-    3 : 1000,
-    4 : 3,
-    5 : 3 
+    1 : 1,
+    2 : 1,
+    3 : 1
   });
 
   // frequency of SNP events for each rname
@@ -272,11 +270,20 @@ function main() {
 }
 
 const output = function(type, pos, rname, len, extra) {
-  var end = (type == 'SNP') 
-    ? Number(pos) + 1
-    : Number(pos) + Number(len);
-
-  //console.log(Array.prototype.join.call(arguments, '\t'));
+  var end;
+  switch (type) {
+  case 'SNP':
+  case 'INS':
+  case 'TRA':
+    end = Number(pos) +1;
+    break;
+  case 'DEL':
+  case 'INV':
+  case 'DUP':
+  default:
+    end = Number(pos) + Number(len);
+    break;
+  }
   console.log([rname, pos, end, type, len, extra].join('\t'));
 }
 

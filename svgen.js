@@ -1,4 +1,4 @@
-const SVConst     = require('./SVConst');
+const SVStream    = require('./SVStream');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
 const nrand       = require('./lib/normal_random');
@@ -7,6 +7,7 @@ const random      = new XORShift(new Date().getTime(), true); // function
 const SortedList  = require('./lib/SortedList');
 const AP          = require('argparser');
 const LS          = require('linestream');
+const Flow        = require('./lib/workflow/wflight');
 const fs          = require('fs');
 const pa          = require('path');
 const spawn       = require('child_process').spawn;
@@ -40,7 +41,7 @@ function main() {
     console.error('[options]');
     console.error('\t' + '--json|-j <json file>\t fasta summary file to shortcut calculation.');
     console.error('[bed file columns]');
-    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|TRA|SNP)\tlength\textra info');
+    console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|TRA|SNP)\tlength\textra-info');
   }
 
   /* check requirements */
@@ -60,6 +61,22 @@ function main() {
     process.exit();
   }
 
+  const jsonfile = p.getOptions('json');
+
+  const json = (function() {
+    if (pa.existsSync(jsonfile)) {
+      try {
+        return JSON.parse(fs.readFileSync(jsonfile).toString());
+      }
+      catch (e) {
+        return null;
+      }
+    }
+    else {
+      return null;
+    }
+  })();
+
   var svgen     = new SVGen(fastafile, {json: json});
   var bedstream = new LS(bedfile, {trim: true});
 
@@ -70,16 +87,16 @@ function main() {
     if (svinfo.length < 6) return;
 
     var rname  = svinfo[0];
-    var start  = svinfo[1];
+    var start  = Number(svinfo[1]);
     //var end    = svinfo[2];
     var type   = svinfo[3];
-    var len    = svinfo[4];
+    var len    = Number(svinfo[4]);
     var extra  = svinfo[5];
     try {
       svgen.register(rname, start, len, type, extra);
     }
     catch (e) {
-      console.error(e);
+      console.error(e.message);
     }
   });
 
@@ -107,6 +124,13 @@ const listOptions = {
   SNP: {
     filter : function(val, pos) {
       return (this.arr[pos] == null) || (this.arr[pos] != null && this.arr[pos] != val);
+    },
+
+    compare: function(a, b) {
+      if (a == null) return -1;
+      if (b == null) return  1;
+      var c = a[0] - b[0];
+      return (c > 0) ? 1 : (c == 0)  ? 0 : -1;
     }
   }
 };
@@ -120,13 +144,14 @@ function SVGen(fasta, options) {
       throw new Error(fasta + ' : no such file.');
     }
   })();
+  this.fastafile = this.fastas.fpath;
   if (!this.fastas) { return false; }
 
   this.regions = {};
 
   Object.keys(this.fastas.result).forEach(function(rname) {
-    //this.regions[rname] = {SV: new SortedList(null ,sv_options), SNP: new SortedList(null, snp_options)};
-    this.regions[rname] = {SV: null, SNP: null};
+    this.regions[rname] = {SV: new SortedList(null ,listOptions.SV), SNP: new SortedList(null, listOptions.SNP)};
+    //this.regions[rname] = {SV: null, SNP: null};
   }, this);
 }
 
@@ -147,22 +172,19 @@ SVGen.prototype.register = function(rname, start, len, type, extra) {
     throw new Error('region of NNN...');
   }
 
-  var snp_or_sv = (type == 'SNP') ? 'SNP' : 'SV';
-  if (this.regions[rname][snp_or_sv] == null) {
-    this.regions[rname][snp_or_sv] = new SortedList(null, listOptions[snp_or_sv]);
-  }
-  var regions = this.regions[rname][snp_or_sv];
-
-  if (!SVGen.valid[type](this.fastas, rname, start, len, extra)) {
+  var data = SVGen.valid[type](this.fastas, rname, start, len, extra);
+  if (!data) {
     throw new Error('invalid format for ' + type + '.');
   }
 
-  var bool = regions.insert([
-    this.fastas.result[rname].getIndex(start),
-    this.fastas.result[rname].getIndex(start + len),
-    type,
-    extra
-  ]);
+  var snp_or_sv = (type == 'SNP') ? 'SNP' : 'SV';
+  /*
+  if (this.regions[rname][snp_or_sv] == null) {
+    this.regions[rname][snp_or_sv] = new SortedList(null, listOptions[snp_or_sv]);
+  }
+  */
+  var regions = this.regions[rname][snp_or_sv];
+  var bool = regions.insert(data);
 
   if (!bool) {
     throw new Error('overlapped region.');
@@ -170,7 +192,60 @@ SVGen.prototype.register = function(rname, start, len, type, extra) {
 };
 
 
-SVGen.prototype.run = function() {
+SVGen.prototype.run = function(wstream) {
+  const rnames = Object.keys(this.fastas.result);
+  const wf     = new Flow();
+  wstream      = (function() {
+    if (typeof wstream == 'string') { return fs.createWriteStream(wstream); }
+    return  (wstream &&
+           typeof wstream == 'object' &&
+           typeof wstream.write == 'function' &&
+           typeof wstream.end == 'function' &&
+           typeof wstream.on == 'function'
+          )
+      ? wstream 
+      : process.stdout; 
+  })();
+
+
+  const that = this;
+  wf.addCommands(rnames.map(function(rname) {
+    return function() {
+      const fasta       = that.fastas.result[rname];
+      const rstream     = fs.createReadStream(that.fastafile, {
+        flags      : 'r',
+        encoding   : 'utf-8',
+        bufferSize : 40960,
+        start      : fasta.getStartIndex(),
+        end        : fasta.getEndIndex() -1
+      });
+      const snpstream   = new SVStream(that.regions[rname].SNP.toArray());
+      const svstream    = new SVStream(that.regions[rname].SV.toArray());
+      const fold        = spawn('fold', ['-w', fasta.linelen]);
+
+      snpstream.pipe(svstream);
+      svstream.pipe(fold.stdin);
+
+      wstream.write('>' + rname + '\n');
+      rstream.on('data', function(data) {
+        snpstream.write(data.toString().split('\n').join(''));
+      });
+
+      rstream.on('end', function() {
+        snpstream.end();
+      });
+
+      fold.stdout.on('data', function(data) {
+        wstream.write(data.toString());
+      });
+
+      fold.stdout.on('end', function() {
+        wstream.write('\n');
+        wf.next();
+      });
+    };
+  }));
+  wf.run();
 };
 
 /*** static functions ***/
@@ -191,40 +266,48 @@ SVGen.noNRegion = function(fastas, rname, start, len) {
   return !fastas.hasN(rname, start, len);
 };
 
-// specific validation of each SV
+/**
+ * specific validation of each SV
+ * returns valid data for SVStream.
+ * 
+ **/
 SVGen.valid = {
   DEL: function(fastas, rname, start, len, extra) {
-    return true;
+    return [start, start + len -1, 'DEL', null];
   },
 
   INS: function(fastas, rname, start, len, extra) {
-    return extra.length == len;
+    return (extra.length == len) ? [start, start, 'INS', extra] : false;
   },
 
   INV: function(fastas, rname, start, len, extra) {
-    return true;
+    return [start, start + len -1, 'DEL', null];
   },
 
   DUP: function(fastas, rname, start, len, extra) {
-    return true;
+    extra = Number(extra);
+    return (!isNaN(extra) && extra >= 2) ? [start, start + len -1, 'DUP', extra] : false;
   },
 
   TRA: function(fastas, rname, start, len, extra) {
     var trinfo = extra.split(':');
-    if (trinfo.length < 3) return false;
+    if (trinfo.length < 2) return false;
     var trname = trinfo[0];
     var tstart = Number(trinfo[1]);
-    var tlen   = Number(trinfo[2]);
     if (! fastas.result[trname] instanceof FASTAReader.FASTA) return false;
-    if (!SVGen.validRange(fastas, trname, tstart, tlen)) return false;
-    if (!SVGen.noNRegion(fastas, trname, tstart, tlen)) return false;
-    return true; 
+    if (!SVGen.validRange(fastas, trname, tstart, len)) return false;
+    if (!SVGen.noNRegion(fastas, trname, tstart, len)) return false;
+    return [start, start, 'INS', fastas.fetch(trname, tstart, len)];  // converted to insertion info.
   },
 
-  SNP: function(fastas, start, len, extra) {
-    return ([1,2,3,4,5].indexOf(extra) >= 0);
+  SNP: function(fastas, rname, start, len, extra) {
+    extra = Number(extra);
+    return ([1,2,3].indexOf(extra) >= 0) ? [start, start, 'SNP', extra] : false;
   }
 };
 
+
+SVGen.getRandomFragment = dna.getRandomFragment;
+SVGen.version = "1.0.0";
 module.exports = SVGen;
 if (__filename == process.argv[1]) { main(); }

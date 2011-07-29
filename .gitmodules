@@ -1,3 +1,6 @@
 [submodule "lib/FASTAReader"]
 	path = lib/FASTAReader
 	url = github:shinout/FASTAReader.git
+[submodule "lib/workflow"]
+	path = lib/workflow
+	url = git://github.com/shinout/workflow.js.git

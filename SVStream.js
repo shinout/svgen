@@ -1,91 +1,71 @@
-var EventEmitter = require('events').EventEmitter;
-var SVConst = require('./SVConst');
+/***
+ * SVStream
+ * argument       : list of SV information
+ * expected input : just sequence (String). without meta data or whitespaces. 
+ * output         : sequence with SV
+ *
+ *
+ *
+ ***/
+const EventEmitter = require('events').EventEmitter;
+const dna          = require('./lib/dna');
+const BASES        = ['A', 'C', 'G', 'T'];
 
 /* constructor */
-function SVStream(op) {
-  this.svs = op.svs || [];
-  this.snps = op.snps || [];
-  this.pos = 0;
-  this.i = 0; // counter for SV
-  this.j = 0; // counter for SNP
-  this.remnant = '';
-}
+function SVStream(regions) {
+  // list of sv info
+  this.regions = regions;
+  this.total   = regions.length;
 
+  // state
+  this.offset  = 0;
+  this.i       = 0; // counter for SV
+  this.remnant = '';
+
+}
 
 /* extends */
 SVStream.prototype = new EventEmitter();
 
-SVStream.prototype.snpize = function(chunk) {
-  var snp = this.snps[this.j];
-  var pos = this.pos;
-  var end = pos + chunk.length;
-  var ins = [];
-  var del = [];
-  var ret = '';
-  while (snp && snp.start+1 <= end) {
-    var str = chunk.slice(0, snp.start + 1 - pos);
-    switch (snp.to) {
-    case 1:
-    case 2:
-    case 3:
-      ret += SVConst.makeSNP(snp, str, pos);
-      break;
-    case 4: // 1base DELETION
-      ret += SVConst.makeDeletion({start: snp.start, end: snp.start+1}, str, pos);
-      del.push(snp.start);
-      break;
-    case 5: // 1base INSERTION 
-      ret += SVConst.makeInsertion({
-        start    : snp.start,
-        end      : snp.start+1,
-        fragment : SVConst.BASES[Math.floor(Math.random() * 4)]
-      }, str, pos);
-      ins.push(snp.start);
-      break;
-    default:
-      ret += str;
+SVStream.prototype.write = function(seq) {
+  seq = this.remnant + seq;
+  const start = 1;
+  var end     = seq.length;
+
+  if (this.total <=  this.i) {
+    this.emit('data', seq);
+    this.remnant = '';
+    return;
+  }
+
+  for (this.i; this.i < this.total && start <= end; this.i++) {
+    var sv      = this.regions[this.i];
+    var svstart = sv[0] - this.offset;
+    var svend   = sv[1] - this.offset;
+    var type    = sv[2];
+    var extra   = sv[3];
+
+    if (start > svstart || svend > end) {
       break;
     }
-    chunk = chunk.slice(snp.start + 1 - pos);
-    pos += str.length;
-    this.j++;
-    snp = this.snps[this.j];
+
+    // emit non effected region
+    this.emit('data', seq.slice(0, svstart -1));
+
+    // emit effected region with SV
+    this.emit('data', SVStream.sv(seq.slice(svstart -1, svend), type, extra) );
+    
+    end -= svend;
+    seq = seq.slice(svend);
+    this.offset += svend;
   }
-  return {chunk: ret + chunk, ins: ins, del: del};
+
+  this.remnant = seq;
 };
 
-SVStream.prototype.write = function(data) {
-  var chunk = this.remnant + data;
-  this.remnant = '';
-  var snp = this.snpize(chunk);
-  chunk = snp.chunk;
-  var sv  = this.svs[this.i];
-  var end = this.pos + chunk.length;
-  
-  /* if all svs were applied */
-  if (!sv) {
-    this.emitDataWithoutLF(chunk);
-    this.pos += chunk.length;
-    return;
-  }
-
-  /* if the current sv not in this range */
-  if (end < sv.start) {
-    this.emitDataWithoutLF(chunk);
-    this.pos += chunk.length;
-    return;
-  }
-
-  if (sv.start < this.pos) {
-    throw new Error('invalid sv start position.');
-  }
-
-  /* execute making sv */
-  this.makeSV(sv, chunk, end);
-};
-
-SVStream.prototype.emitDataWithoutLF = function(data) {
-  this.emit('data', data.split('\n').join(''));
+SVStream.prototype.end = function() {
+  this.emit('data', this.remnant);
+  this.emit('end');
 };
 
 SVStream.prototype.pipe = function(stream) {
@@ -102,44 +82,82 @@ SVStream.prototype.pipe = function(stream) {
   });
 };
 
-SVStream.prototype.end = function() {
-  if (this.remnant) {
-    var sv = this.svs[this.i];
-    var end = this.pos + this.remnant.length;
-    this.makeSV(sv, this.remnant, end);
-    this.emitDataWithoutLF(this.remnant);
-  }
-  this.emit('end');
-}
 
-SVStream.prototype.makeSV = function(sv, chunk, end) {
-  while (sv && sv.end <= end) {
-    var str = chunk.slice(0, sv.end - this.pos);
-    switch (sv.type) {
-    case SVConst.DEL:
-      this.emitDataWithoutLF(SVConst.makeDeletion(sv, str, this.pos));
-      break;
-    case SVConst.INS:
-      this.emitDataWithoutLF(SVConst.makeInsertion(sv, str, this.pos));
-      break;
-    case SVConst.INV:
-      this.emitDataWithoutLF(SVConst.makeInversion(sv, str, this.pos));
-      break;
-    case SVConst.DUP:
-      this.emitDataWithoutLF(SVConst.makeTandemDuplication(sv, str, this.pos));
-      break;
-    default:
-      // err
-      break;
+SVStream.sv = function(seq, type, extra) {
+  switch (type) {
+  case 'INS':
+  case 'TRA':
+    return extra + seq;
+  case 'DEL':
+    return '';
+  case 'INV':
+    return dna.complStrand(seq, true);
+  case 'DUP':
+    var times = Number(extra);
+    var ret = '';
+    for (var i=0; i<times; i++) {
+      ret += seq;
     }
-    chunk = chunk.slice(sv.end - this.pos);
-    this.pos += str.length;
-    this.i++;
-    sv = this.svs[this.i];
+    return ret;
+  case 'SNP':
+    var idx = BASES.indexOf(seq.toUpperCase());
+    return (idx >= 0) ? BASES[(idx + extra) % 4] : seq;
+  default:
+    return seq;
   }
-  this.remnant = chunk;
+};
+
+
+/**
+ * test
+ **/
+function test() {
+  const WF     = require('./lib/workflow/wflight');
+  const wf     = new WF();
+  const seq    = 'abcdefghijklmnopqrstuvwxyz1234567890';
+  const answer = 'dINSERTEDefThijasrqponmlkuvwxyz1234123412341234123412341234123412341234567890';
+
+  wf.addCommands([1, 2, 4, 8].map(function(num) {
+    return function() {
+      var len  = seq.length;
+      var l    = Math.floor(len / num);
+      var seqs = [];
+      var st   = 0;
+      for (var i=0; i<num-1; i++) {
+        seqs.push(seq.substr(st, l));
+        st += l;
+      }
+      seqs.push(seq.substr(st));
+
+      const svstream = new SVStream([
+        [1, 3, 'DEL', null],
+        [5, 5, 'INS', 'INSERTED'],
+        [7, 7, 'SNP', 1],
+        [11, 20, 'INV', null],
+        [27, 30, 'DUP', 10],
+      ]);
+
+      var result = '';
+      svstream.on('data', function(data) {
+        result += data;
+      });
+
+      svstream.on('end', function() {
+        console.log(result);
+        console.log(result == answer);
+        wf.next();
+      });
+
+      seqs.forEach(function(s) {
+        svstream.write(s);
+      });
+
+      svstream.end();
+    };
+  }));
+
+  wf.run();
 }
 
-
-/* exports */
 module.exports = SVStream;
+if (__filename == process.argv[1]) { test(); }
