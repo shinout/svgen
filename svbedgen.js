@@ -1,5 +1,5 @@
 const fs          = require('fs');
-const ArgParser   = require('argparser');
+const ArgParser   = require('./lib/argparser/ArgParser');
 const nrand       = require('./lib/normal_random');
 const XORShift    = require('./lib/xorshift');
 const random      = new XORShift(new Date().getTime(), true); // function
