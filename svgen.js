@@ -13,7 +13,7 @@ const pa          = require('path');
 const spawn       = require('child_process').spawn;
 const numberize = function(v, _default, allow_zero) {
   return ((allow_zero && v == 0) || v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
-}
+};
 
 
 /*
@@ -31,7 +31,7 @@ const numberize = function(v, _default, allow_zero) {
  *
  */
 function main() {
-  const p = new AP().addValueOptions(['json', 'exename']).addOptions([]).parse();
+  const p = new AP().addValueOptions(['j', 'json', 'exename', 'r', 'rnames']).addOptions([]).parse();
 
 
   function showUsage() {
@@ -39,6 +39,7 @@ function main() {
     console.error('[usage]');
     console.error('\t' + cmd + ' <bed file> <fasta file>');
     console.error('[options]');
+    console.error('\t' + '--rnames|-r <sequence id1>[,sequence_id2,...]\t sequence ids to use. default: null (use all rnames in a fasta file.)');
     console.error('\t' + '--json|-j <json file>\t fasta summary file to shortcut calculation.');
     console.error('[bed file columns]');
     console.error('\trname\tstart-position\tend-position\tSVtype(DEL|INS|INV|DUP|TRA|SNP)\tlength\textra-info');
@@ -77,8 +78,9 @@ function main() {
     }
   })();
 
-  var svgen     = new SVGen(fastafile, {json: json});
-  var bedstream = new LS(bedfile, {trim: true});
+  const rnames = (p.getOptions('rnames', 'r')) ? p.getOptions('rnames', 'r').split(',') : null;
+  const svgen     = new SVGen(fastafile, {json: json, rnames: rnames});
+  const bedstream = new LS(bedfile, {trim: true});
 
   /* register from BED */
   bedstream.on('data', function(line) {
@@ -135,6 +137,16 @@ const listOptions = {
   }
 };
 
+
+/**
+ * constructor
+ * 
+ * @param (String) fasta: file name of FASTA to use.
+ * @param (Object) options: 
+ *   (Object) json  : json data of fasta file.
+ *   (Array) rnames : sequence ids to use.
+ *
+ **/
 function SVGen(fasta, options) {
   this.fastas = (fasta instanceof FASTAReader) ? fasta : (function() {
     if (pa.existsSync(fasta)) {
@@ -147,6 +159,22 @@ function SVGen(fasta, options) {
   this.fastafile = this.fastas.fpath;
   if (!this.fastas) { return false; }
 
+  this.rnames = [];
+
+  if (options.rnames instanceof Array) {
+    options.rnames.forEach(function(rname) {
+      if (this.fastas.result[rname] instanceof FASTAReader.FASTA) {
+        this.rnames.push(rname);
+      }
+      else {
+        console.error('rname "' + rname + '" is not in FASTA file, so skipped this name.');
+      }
+    }, this);
+  }
+  else {
+    this.rnames = Object.keys(this.fastas.result);
+  }
+
   this.regions = {};
 
   Object.keys(this.fastas.result).forEach(function(rname) {
@@ -155,6 +183,25 @@ function SVGen(fasta, options) {
   }, this);
 }
 
+/**
+ * register SV/SNP
+ *
+ * @param (String) rname : rname to put SV/SNP
+ * @param (Integer) start : start position of SV/SNP
+ * @param (Integer) len: length of SV/SNP
+ * @param (String) type: type of SV/SNP (must be one of DEL, INS, INV, DUP, TRA, SNP)
+ * @param (mixed) extra: extra information for each SV/SNP
+ *  switch (type)
+ *   case DEL, INV : extra is not used.
+ *   case INS      : extra is a sequence insert.
+ *   case DUP      : extra is the number of repeat.
+ *   case TRA      : extra is the position information from which to insert in the following format.
+ *     "rname:start_position"
+ *   case SNP      : extra is one of [1,2,3], which represents the type of alteration.
+ *
+ *@throws Error
+ *@returns
+ **/
 SVGen.prototype.register = function(rname, start, len, type, extra) {
   if (! this.fastas[rname] instanceof FASTAReader.FASTA) {
     throw new Error(rname + ' : invalid rname.');
@@ -169,6 +216,7 @@ SVGen.prototype.register = function(rname, start, len, type, extra) {
   }
 
   if (!SVGen.noNRegion(this.fastas, rname, start, len)) {
+    console.log(rname, start, len, type, extra);
     throw new Error('region of NNN...');
   }
 
@@ -191,9 +239,14 @@ SVGen.prototype.register = function(rname, start, len, type, extra) {
   }
 };
 
-
+/**
+ * get a sequence with SV in FASTA format.
+ * @param (mixed) wstream : writable stream. When string given, a file the name of which is wstream, is created.
+ *                          If null, then wstream = process.stdout
+ * @returns
+ **/
 SVGen.prototype.run = function(wstream) {
-  const rnames = Object.keys(this.fastas.result);
+  const rnames = this.rnames;
   const wf     = new Flow();
   wstream      = (function() {
     if (typeof wstream == 'string') { return fs.createWriteStream(wstream); }
@@ -250,8 +303,11 @@ SVGen.prototype.run = function(wstream) {
 
 /*** static functions ***/
 /**
- *
- * return boolean
+ * @param (FASTAReader) fastas
+ * @param (String) rname
+ * @param (Integer) start 
+ * @param (Integer) len 
+ * @returns boolean
  */
 SVGen.validRange = function(fastas, rname, start, len) {
   var fasta = fastas.result[rname];
@@ -259,8 +315,11 @@ SVGen.validRange = function(fastas, rname, start, len) {
 };
 
 /**
- *
- * return boolean
+ * @param (FASTAReader) fastas
+ * @param (String) rname
+ * @param (Integer) start 
+ * @param (Integer) len 
+ * @returns boolean
  */
 SVGen.noNRegion = function(fastas, rname, start, len) {
   return !fastas.hasN(rname, start, len);
@@ -268,8 +327,12 @@ SVGen.noNRegion = function(fastas, rname, start, len) {
 
 /**
  * specific validation of each SV
- * returns valid data for SVStream.
- * 
+ * of each function, 
+ * @param (FASTAReader) fastas
+ * @param (String) rname
+ * @param (Integer) start 
+ * @param (Integer) len 
+ * @returns valid data for SVStream.
  **/
 SVGen.valid = {
   DEL: function(fastas, rname, start, len, extra) {
@@ -306,8 +369,7 @@ SVGen.valid = {
   }
 };
 
-
 SVGen.getRandomFragment = dna.getRandomFragment;
-SVGen.version = "1.0.0";
+SVGen.version = "1.1.0";
 module.exports = SVGen;
 if (__filename == process.argv[1]) { main(); }

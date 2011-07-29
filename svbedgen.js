@@ -10,16 +10,16 @@ const WSelection  = require('./lib/WeightedSelection');
 
 const numberize = function(v, _default) {
   return (v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
-}
+};
 
 const randomInt = function(max) {
   return Math.floor(random() * max);
-}
+};
 
 
 function main() {
   const p = new ArgParser().addOptions([]).addValueOptions([
-    'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename',
+    'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'rnames', 'exename',
     'inslen', 'insdev', 'dellen', 'deldev', 'invlen', 'invdev', 
     'duplen', 'dupdev', 'duprep', 'duprdev',
     'insnum', 'delnum', 'invnum', 'dupnum', 'tranum'
@@ -75,6 +75,7 @@ function main() {
     console.error('');
 
     console.error('\t** configuration for a fasta file.');
+    console.error('\t' + '--rnames <sequence id1>[,sequence_id2,...]\t sequence ids to use. default: null (use all rnames in a fasta file.)');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
     console.error('');
 
@@ -104,7 +105,7 @@ function main() {
   })();
 
   const fastas  = new FASTAReader(fastafile, json);
-  const rnames  = Object.keys(fastas.result);
+  const rnames = (p.getOptions('rnames')) ? p.getOptions('rnames').split(',') : Object.keys(fastas.result);
   
   /* get options */
   const snprate = numberize(p.getOptions('snprate'),10000);
@@ -172,7 +173,7 @@ function main() {
     sv_counts[rname_rand]++;
   }
 
-  const svgen = new SVGen(fastas);
+  const svgen = new SVGen(fastas, {rnames: rnames});
   rnames.forEach(function(rname) {
     var cnt = sv_counts[rname] || 0;
     const fasta        = fastas.result[rname];

@@ -1,4 +1,4 @@
-SVGenerator 1.0.0
+SVGenerator 1.1.0
 ==========
 generate DNA Structural Variation from FASTA format (Node.js)
 
@@ -6,6 +6,7 @@ Change Log
 ----------------
 * [0.1.0]: release
 * [1.0.0]: support multi fasta
+* [1.1.0]: support rnames option
 
 Overview
 ----------------
@@ -75,12 +76,14 @@ Overview
       --snprate reciprocal rate to insert SNP default:10000 (1/10000). if 0, then no SNPs are registered.
 
       ** configuration for a fasta file.
+      --rnames <sequence id1>[,sequence_id2,...]   sequence ids to use. default: null (use all rnames in a fasta file.)
       --json <json file>   fasta summary file to shortcut calculation.
 
     **** svgen ****
     [usage]
       node svgen.js <bed file> <fasta file>
     [options]
+      --rnames|-r <sequence id1>[,sequence_id2,...]   sequence ids to use. default: null (use all rnames in a fasta file.)
       --json|-j <json file>  fasta summary file to shortcut calculation.
     [bed file columns]
       rname start-position  end-position  SVtype(DEL|INS|INV|DUP|TRA|SNP) length  extra-info
