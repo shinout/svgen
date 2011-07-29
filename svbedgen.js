@@ -150,6 +150,14 @@ function main() {
     return ret;
   })() , random); 
 
+  // weighted selection of rnames for translocation, uses all sequences in the fasta file.
+  const rselect_trans = new WSelection((function(){
+    var ret = {};
+    Object.keys(fastas.result).forEach(function(rname) {
+      ret[rname] = fastas.result[rname].getEndPos();
+    });
+    return ret;
+  })() , random); 
 
 
   console.error('generating SV registration data');
@@ -197,7 +205,7 @@ function main() {
           // get fragment from a random position.
           var rn, fa, st, extra_canditate;
           do {
-            rn = rselect.random();
+            rn = rselect_trans.random();
             fa = fastas.result[rn];
             st = randomInt(fa.getEndPos() - len - 1);
             extra_canditate = rn + ':' + st;
