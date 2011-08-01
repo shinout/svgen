@@ -18,10 +18,10 @@ const randomInt = function(max) {
 
 
 function main() {
-  const p = new ArgParser().addOptions([]).addValueOptions([
+  const p = new ArgParser().addOptions(['noinfo']).addValueOptions([
     'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'rnames', 'exename',
     'inslen', 'insdev', 'dellen', 'deldev', 'invlen', 'invdev', 
-    'duplen', 'dupdev', 'duprep', 'duprdev',
+    'duplen', 'dupdev', 'duprep', 'duprdev', 'tralen', 'tradev',
     'insnum', 'delnum', 'invnum', 'dupnum', 'tranum'
   ]).parse();
 
@@ -77,6 +77,10 @@ function main() {
     console.error('\t** configuration for a fasta file.');
     console.error('\t' + '--rnames <sequence id1>[,sequence_id2,...]\t sequence ids to use. default: null (use all rnames in a fasta file.)');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
+    console.error('');
+
+    console.error('\t** configuration for output');
+    console.error('\t' + '--noinfo\tno output of detailed information.');
     console.error('');
 
   }
@@ -159,7 +163,19 @@ function main() {
     return ret;
   })() , random); 
 
+  function showlog() {
+    const log = (p.getOptions('noinfoo')) ? console.error : console.log;
+    log('### svbedgen input information ###');
+    log('# [general information]');
+    log('#   fasta file: ' + fastafile);
+    log('#   json file: ' + p.getOptions('json'));
+    log('#   the number of SVs: ' + svnum);
+    log('#   total SV: ' + svnum);
+    log('# [SNP]');
+    log('# SNP rate: ' + '1 / ' + snprate);
+  }
 
+  showlog();
   console.error('generating SV registration data');
   // weighted selection of SV types
   const tselect = new WSelection({
