@@ -19,7 +19,7 @@ const randomInt = function(max) {
 
 function main() {
   const p = new ArgParser().addOptions(['noinfo']).addValueOptions([
-    'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'rnames', 'exename',
+    'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename',
     'inslen', 'insdev', 'dellen', 'deldev', 'invlen', 'invdev', 
     'duplen', 'dupdev', 'duprep', 'duprdev', 'tralen', 'tradev',
     'insnum', 'delnum', 'invnum', 'dupnum', 'tranum'
