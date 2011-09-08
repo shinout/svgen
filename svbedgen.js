@@ -6,6 +6,7 @@ const random      = new XORShift(new Date().getTime(), true); // function
 const SVGen       = require('./svgen');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
+const cl          = require('./lib/termcolor').define();
 const WSelection  = require('./lib/WeightedSelection');
 
 const numberize = function(v, _default) {
@@ -28,11 +29,11 @@ function main() {
   function showUsage() {
     const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
     console.error('[synopsis]');
-    console.error('\t' + cmd + ' <fasta file>');
+    console.egreen('\t' + cmd + ' <fasta file>');
     console.error('[options]');
     console.error('');
 
-    console.error('\t** length: the lengths of SVs.');
+    console.eyellow('\tlength: the lengths of SVs.');
     console.error('\t--svlen <int>\tmean length of SVs. default:1500');
     console.error('\t--inslen <int>\tmean length of insertions. default: the same as "svlen" option. if 0, then no insertions are registered.');
     console.error('\t--dellen <int>\tmean length of deletions. default: the same as "svlen" option. if 0, then no deletions are registered.');
@@ -41,7 +42,7 @@ function main() {
     console.error('\t--tralen <int>\tmean length of translocations. default: the same as "svlen" option. if 0, then no translocations are registered.');
     console.error('');
 
-    console.error('\t** deviation : standard deviation of each SVs.');
+    console.eyellow('\tdeviation : standard deviation of each SVs.');
     console.error('\t--svdev <int>\tstddev of SVs. default:300');
     console.error('\t--insdev <int>\tstddev of insertions. default: the same as "svlen" option');
     console.error('\t--deldev <int>\tstddev of deletions. default: the same as "svlen" option');
@@ -50,13 +51,13 @@ function main() {
     console.error('\t--tradev <int>\tstddev of translocations. default: the same as "svlen" option');
     console.error('');
 
-    console.error('\t** number: total number of SVs.');
+    console.eyellow('\tnumber: total number of SVs.');
     console.error('\t--sv <int>\tthe number of SVs to register. default:10000. If each SV is specifically designated its number, that configuration priors to this.');
     console.error('');
 
-    console.error('\t** rate : the rate of each SV type, determined by the following rule.');
-    console.error('\t*  let "total" be the sum of each num, i.e. insnum, delnum, invnum, dupnum and tranum.');
-    console.error('\t*  the rate of each SV is  x / total, where x is one of insnum, delnum, invnum, dupnum or tranum.');
+    console.eyellow('\trate : the rate of each SV type, determined by the following rule.');
+    console.eblue('\tlet "total" be the sum of each num, i.e. insnum, delnum, invnum, dupnum and tranum.');
+    console.eblue('\tthe rate of each SV is  x / total, where x is one of insnum, delnum, invnum, dupnum or tranum.');
     console.error('\t--insnum <int>\tfor insertions. default: 200.');
     console.error('\t--delnum <int>\tfor deletions. default: 200.');
     console.error('\t--invnum <int>\tfor inversions. default: 200.');
@@ -64,25 +65,24 @@ function main() {
     console.error('\t--tranum <int>\tfor translocations. default: 200.');
     console.error('');
 
-    console.error('\t** repeat number of tandem duplication.');
+    console.eyellow('\trepeat number of tandem duplication.');
     console.error('\t--duprep <int>\tmean repeat folds of tandem duplications. default: 40.');
     console.error('\t--duprdev <int>\tstddev of repeat folds of tandem duplications. default: 10.');
     console.error('');
 
-    console.error('\t** configuration for SNP.');
-    console.error('\t* for simplicity, only single nucleotide alteration is supported.');
+    console.eyellow('\tconfiguration for SNP.');
+    console.eblue('\tfor simplicity, only single nucleotide alteration is supported.');
     console.error('\t--snprate\treciprocal rate to insert SNP default:10000 (1/10000). if 0, then no SNPs are registered.');
     console.error('');
 
-    console.error('\t** configuration for a fasta file.');
+    console.eyellow('\tconfiguration for a fasta file.');
     console.error('\t' + '--rnames <sequence id1>[,sequence_id2,...]\t sequence ids to use. default: null (use all rnames in a fasta file.)');
     console.error('\t' + '--json <json file>\t fasta summary file to shortcut calculation.');
     console.error('');
 
-    console.error('\t** configuration for output');
+    console.eyellow('\tconfiguration for output');
     console.error('\t' + '--noinfo\tno output of detailed information.');
     console.error('');
-
   }
 
 
@@ -164,7 +164,7 @@ function main() {
   })() , random); 
 
   function showlog() {
-    const log = (p.getOptions('noinfoo')) ? console.error : console.log;
+    const log = (p.getOptions('noinfo')) ? console.error : console.log;
     log('### svbedgen input information ###');
     log('# [general information]');
     log('#   fasta file: ' + fastafile);
