@@ -85,7 +85,7 @@ function main() {
   /* register from BED */
   bedstream.on('data', function(line) {
     if (!line || line.charAt(0) == '#') return;
-    var svinfo = line.split('\t');
+    var svinfo = line.trim().split('\t');
     if (svinfo.length < 6) return;
 
     var rname  = svinfo[0];
@@ -222,7 +222,7 @@ SVGen.prototype.register = function(rname, start, len, type, extra) {
 
   var data = SVGen.valid[type](this.fastas, rname, start, len, extra);
   if (!data) {
-    throw new Error('invalid format for ' + type + '.');
+    throw new Error('invalid format for ' + type + '.\n' + [rname, start, len, extra].join('\n') );
   }
 
   var snp_or_sv = (type == 'SNP') ? 'SNP' : 'SV';

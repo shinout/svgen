@@ -10,3 +10,6 @@
 [submodule "lib/LineStream"]
 	path = lib/LineStream
 	url = git://github.com/shinout/LineStream
+[submodule "lib/Junjo"]
+	path = lib/Junjo
+	url = github:shinout/Junjo.js.git
