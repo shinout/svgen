@@ -43,32 +43,27 @@ function main() {
   $j('registerBeds', function(fasta, svbed, coordbed, json) {
     var svgen = new SVGen(fasta, {json: json, rnames: null});
     var bedstream = new LS(svbed, {trim: true});
-    var cb = this.callback;
 
-    bedstream.on('data', function(line) {
-      try {
-        if (!line || line.charAt(0) == '#') return;
-        var svinfo = line.split('\t');
-        if (svinfo.length < 6) return;
+    this.absorb(bedstream, 'data', function(line, result) {
+      if (!line || line.charAt(0) == '#') return;
+      var svinfo = line.split('\t');
+      if (svinfo.length < 6) return;
 
-        var rname  = svinfo[0];
-        var start  = Number(svinfo[1]);
-        //var end    = svinfo[2];
-        var type   = svinfo[3];
-        var len    = Number(svinfo[4]);
-        var extra  = svinfo[5];
-        svgen.register(rname, start, len, type, extra);
-      }
-      catch (e) { cb(e) }
+      var rname  = svinfo[0];
+      var start  = Number(svinfo[1]);
+      //var end    = svinfo[2];
+      var type   = svinfo[3];
+      var len    = Number(svinfo[4]);
+      var extra  = svinfo[5];
+      svgen.register(rname, start, len, type, extra);
+      return svgen;
     });
-
-    this.emitEnd(bedstream);
-    this.shared.svgen = svgen;
+    this.absorbError(bedstream);
   })
   .firstError('shift')
   .after('inputCheck', 'json');
 
-  $j('sort', function(fasta, svbed, coordbed) {
+  $j('sort', function(fasta, svbed, coordbed, svgen) {
     var sort = spawn('sortBed'); 
     fs.createReadStream(coordbed).pipe(sort.stdin);
 
@@ -77,29 +72,26 @@ function main() {
     sort.stderr.on('data', function(data) {
       console.log(data.toString());
     });
-    this.emitError(sort.stderr, 'data');
+    this.absorbError(sort.stderr, 'data');
 
-    this.emitOn(coord, 'data', 'line');
-    /* future API
-    this.on(coord, 'data', function(line) { });
-    // */
+    this.absorb(coord, 'data', function(line, result) {
+      if (!line || line.charAt(0) == '#') return;
+      var svinfo = line.split('\t');
+      if (svinfo.length < 3) return;
+
+      var rname  = svinfo[0];
+      var regions = svgen.regions[rname];
+      var svpos = regions.SV;
+      var snvs  = regions.SV;
+      var start  = Number(svinfo[1]);
+      var end    = svinfo[2];
+      console.log(rname, start, end);
+    });
   })
-  .after('inputCheck', 'registerBeds');
-
-  $j.on('line', function(line) {
-    if (!line || line.charAt(0) == '#') return;
-    var svinfo = line.split('\t');
-    if (svinfo.length < 3) return;
-
-    var rname  = svinfo[0];
-    var regions = $j.shared('svgen', 'regions', rname);
-    var svpos = regions.SV;
-    var snvs  = regions.SV;
-    console.log(svpos);
-    var start  = Number(svinfo[1]);
-    var end    = svinfo[2];
-    console.log(rname, start, end);
-
+  .firstError('shift')
+  .after('inputCheck', 'registerBeds')
+  .next(function(out) {
+    console.log(out);
   });
 
   $j.catchesAbove(function(e, args) {
