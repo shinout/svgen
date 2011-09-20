@@ -107,7 +107,7 @@ function main() {
   });
 
   $j.catchesAbove(function(e, args) {
-    console.ered('[Error] : ' +  e.message + ' in label: ' + cl.yellow(this.label()));
+    console.ered('[Error] : ' +  e.message + ' in label: ' + cl.yellow(this.label));
     console.ered(e.stack || e);
     $j.terminate();
   });
