@@ -199,45 +199,58 @@ function SVGen(fasta, options) {
  *     "rname:start_position"
  *   case SNP      : extra is one of [1,2,3], which represents the type of alteration.
  *
+ * @param (boolean) suspend: suspend registration until the next registration is succeeded.
  *@throws Error
  *@returns
  **/
-SVGen.prototype.register = function(rname, start, len, type, extra) {
-  if (! this.fastas[rname] instanceof FASTAReader.FASTA) {
-    throw new Error(rname + ' : invalid rname.');
-  }
+SVGen.prototype.register = function(rname, start, len, type, extra, suspend) {
+  try {
+    if (! this.fastas[rname] instanceof FASTAReader.FASTA) {
+      throw new Error(rname + ' : invalid rname.');
+    }
 
-  if (typeof SVGen.valid[type] != 'function') {
-    throw new Error(type + ' : invalid type of SV.');
-  }
+    if (typeof SVGen.valid[type] != 'function') {
+      throw new Error(type + ' : invalid type of SV.');
+    }
 
-  if (!SVGen.validRange(this.fastas, rname, start, len)) {
-    throw new Error('invalid range.');
-  }
+    if (!SVGen.validRange(this.fastas, rname, start, len)) {
+      throw new Error('invalid range.');
+    }
 
-  if (!SVGen.noNRegion(this.fastas, rname, start, len)) {
-    console.log(rname, start, len, type, extra);
-    throw new Error('region of NNN...');
-  }
+    if (!SVGen.noNRegion(this.fastas, rname, start, len)) {
+      console.log(rname, start, len, type, extra);
+      throw new Error('region of NNN...');
+    }
 
-  var data = SVGen.valid[type](this.fastas, rname, start, len, extra);
-  if (!data) {
-    throw new Error('invalid format for ' + type + '.\n' + [rname, start, len, extra].join('\n') );
-  }
+    var data = SVGen.valid[type].call(this, this.fastas, rname, start, len, extra);
+    if (!data) {
+      throw new Error('invalid format for ' + type + '.\n' + [rname, start, len, extra].join('\n') );
+    }
 
-  var snp_or_sv = (type == 'SNP') ? 'SNP' : 'SV';
-  /*
-  if (this.regions[rname][snp_or_sv] == null) {
-    this.regions[rname][snp_or_sv] = new SortedList(null, listOptions[snp_or_sv]);
-  }
-  */
-  var regions = this.regions[rname][snp_or_sv];
-  var bool = regions.insert(data);
+    var snp_or_sv = (type == 'SNP') ? 'SNP' : 'SV';
+    /*
+    if (this.regions[rname][snp_or_sv] == null) {
+      this.regions[rname][snp_or_sv] = new SortedList(null, listOptions[snp_or_sv]);
+    }
+    */
+    var regions = this.regions[rname][snp_or_sv];
+    var pos = regions.insert(data);
 
-  if (!bool) {
-    throw new Error('overlapped region.');
+    if (pos === false) {
+      throw new Error('overlapped region.');
+    }
+    if (suspend) this.pending = { regions: regions, pos: pos };
+  }
+  catch (e) {
+    if (this.pending) this.pending.regions.remove(this.pending.pos);
+    throw e;
+  }
+  finally {
+    if (!suspend) this.pending = null;
+    return pos;
   }
 };
+
 
 /**
  * get a sequence with SV in FASTA format.
@@ -336,7 +349,9 @@ SVGen.noNRegion = function(fastas, rname, start, len) {
  **/
 SVGen.valid = {
   DEL: function(fastas, rname, start, len, extra) {
-    return [start, start + len -1, 'DEL', null];
+    var ret = [start, start + len -1, 'DEL', null];
+    if (Array.isArray(extra)) ret.push(extra);
+    return ret;
   },
 
   INS: function(fastas, rname, start, len, extra) {
@@ -357,10 +372,15 @@ SVGen.valid = {
     if (trinfo.length < 2) return false;
     var trname = trinfo[0];
     var tstart = Number(trinfo[1]);
-    if (! fastas.result[trname] instanceof FASTAReader.FASTA) return false;
-    if (!SVGen.validRange(fastas, trname, tstart, len)) return false;
-    if (!SVGen.noNRegion(fastas, trname, tstart, len)) return false;
-    return [start, start, 'INS', fastas.fetch(trname, tstart, len)];  // converted to insertion info.
+
+    try {
+      // pending the registration of DEL until INS is successfully registered.
+      this.register(trname, tstart, len, 'DEL', [rname, start], true); 
+    }
+    catch (e) {
+      return false;
+    }
+    return [start, start, 'INS', fastas.fetch(trname, tstart, len), trinfo];  // converted to insertion info.
   },
 
   SNP: function(fastas, rname, start, len, extra) {

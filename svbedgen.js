@@ -6,7 +6,7 @@ const random      = new XORShift(new Date().getTime(), true); // function
 const SVGen       = require('./svgen');
 const FASTAReader = require('./lib/FASTAReader/FASTAReader');
 const dna         = require('./lib/dna');
-const cl          = require('./lib/termcolor').define();
+const cl          = require('./lib/Junjo/lib/termcolor').define();
 const WSelection  = require('./lib/WeightedSelection');
 
 const numberize = function(v, _default) {
@@ -225,7 +225,11 @@ function main() {
             fa = fastas.result[rn];
             st = randomInt(fa.getEndPos() - len - 1);
             extra_canditate = rn + ':' + st;
-          } while (!SVGen.valid.TRA(fastas, rname, start, len, extra_canditate)); // TODO escape loop
+          } while (
+            ! SVGen.validRange(fastas, rn, st, len) ||
+            ! SVGen.noNRegion(fastas, rn, st, len)
+          ); // TODO escape loop
+
           return extra_canditate;
         case 'DUP':
           return Math.max(Math.floor(nrand(duprep, duprdev, random)), 2);
@@ -239,6 +243,7 @@ function main() {
         output(type, start, rname, len, extra);
       }
       catch (err) {
+        console.red(err.message)
         //console.error(err.message);
         e++;
         i--;
