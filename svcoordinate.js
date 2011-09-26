@@ -7,11 +7,14 @@ const cl    = require('./lib/Junjo/lib/termcolor').define()
 const pa    = require('path');
 const spawn = require('child_process').spawn;
 
+var $j = new Junjo();
+
+
 //cl.prod();
 function main() {
   var p  = new AP().addOptions([]).addValueOptions([]).parse();
-  var $j = new Junjo();
 
+  var $j = new Junjo();
   function showUsage() {
     const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
     console.error('[synopsis]');
