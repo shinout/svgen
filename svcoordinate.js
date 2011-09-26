@@ -35,7 +35,7 @@ function main() {
   .catches(function(e) {
     console.ered('[Error] : ' +  e.message);
     showUsage();
-    $j.terminate();
+    this.terminate();
   });
 
   $j('json', function() {
@@ -112,7 +112,7 @@ function main() {
   $j.catchesAbove(function(e, args) {
     console.ered('[Error] : ' +  e.message + ' in label: ' + cl.yellow(this.label));
     console.ered(e.stack || e);
-    $j.terminate();
+    this.terminate();
   });
 
   $j.run();
