@@ -6,49 +6,23 @@ const SVGen = require('./svgen');
 const cl    = require('./lib/Junjo/lib/termcolor').define()
 const pa    = require('path');
 const spawn = require('child_process').spawn;
-
-var $j = new Junjo();
-
-
 //cl.prod();
-function main() {
-  var p  = new AP().addOptions([]).addValueOptions([]).parse();
 
+
+function svcoordinate() {
   var $j = new Junjo();
-  function showUsage() {
-    const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
-    console.error('[synopsis]');
-    console.error('\t' + cmd + ' <fasta file> <sv bed file> <coordinate bed file>');
-    console.error('[options]');
-  }
 
-  $j('inputCheck', function() {
-    var fasta    = p.getArgs(0);
-    var svbed    = p.getArgs(1);
-    var coordbed = p.getArgs(2);
-    if (!fasta || !svbed || !coordbed) throw new Error('requires three arguments.');
-    if (! pa.existsSync(fasta)) throw new Error(fasta + ' : No such file.');
-    if (! pa.existsSync(svbed)) throw new Error(svbed + ' : No such file.');
-    if (! pa.existsSync(coordbed)) throw new Error(svbed + ' : No such file.');
-    return Junjo.multi(fasta, svbed, coordbed);
-  })
-  .catches(function(e) {
-    console.ered('[Error] : ' +  e.message);
-    showUsage();
-    this.terminate();
+  $j.inputs({
+    fasta       : 0,
+    bedStream   : 1,
+    coordStream : 2,
+    json        : 3
   });
 
-  $j('json', function() {
-    var jsonfile = p.getOptions('json');
-    return JSON.parse(fs.readFileSync(jsonfile).toString());
-  })
-  .failSafe(null);
-
-  $j('registerBeds', function(fasta, svbed, coordbed, json) {
+  $j('svgen', function(fasta, bedStream, json) {
     var svgen = new SVGen(fasta, {json: json, rnames: null});
-    var bedstream = new LS(svbed, {trim: true});
 
-    this.absorb(bedstream, 'data', function(line, result) {
+    this.absorb(bedStream, 'data', function(line, result) {
       if (!line || line.charAt(0) == '#') return;
       var svinfo = line.split('\t');
       if (svinfo.length < 6) return;
@@ -62,23 +36,18 @@ function main() {
       svgen.register(rname, start, len, type, extra);
       return svgen;
     });
-    this.absorbError(bedstream);
+    //this.absorbError(bedStream);
   })
   .firstError('shift')
-  .after('inputCheck', 'json');
+  .after('fasta', 'bedStream', 'json');
 
-  $j('sort', function(fasta, svbed, coordbed, svgen) {
-    var sort = spawn('sortBed'); 
-    fs.createReadStream(coordbed).pipe(sort.stdin);
-
-    var coord = new LS(sort.stdout, {trim: true});
-    this.absorbError(sort.stderr, 'data');
+  $j('convert', function(coordStream, svgen) {
     this.$.n = 0;
 
     console.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
     console.egreen("------------------------     START       ----------------------------------");
     console.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-    this.absorb(coord, 'data', function(line, result, $f) {
+    this.absorb(coordStream, 'data', function(line, result, $f) {
       if (!line || line.charAt(0) == '#') return;
       var svinfo = line.split('\t');
       if (svinfo.length < 3) return;
@@ -104,7 +73,7 @@ function main() {
     });
   })
   .firstError('shift')
-  .after('inputCheck', 'registerBeds')
+  .after('coordStream', 'svgen')
   .next(function(out) {
     //console.log(out);
   });
@@ -114,6 +83,57 @@ function main() {
     console.ered(e.stack || e);
     this.terminate();
   });
+
+  return $j.prepare();
+}
+
+function main() {
+  var p  = new AP().addOptions([]).addValueOptions([]).parse();
+
+  var $j = new Junjo();
+  var $s = svcoordinate();
+
+  function showUsage() {
+    const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
+    console.error('[synopsis]');
+    console.error('\t' + cmd + ' <fasta file> <sv bed file> <coordinate bed file>');
+    console.error('[options]');
+  }
+
+  $j('inputCheck', function() {
+    var fasta    = p.getArgs(0);
+    var svbed    = p.getArgs(1);
+    var coordbed = p.getArgs(2);
+    if (!fasta || !svbed || !coordbed) throw new Error('requires three arguments.');
+    if (! pa.existsSync(fasta)) throw new Error(fasta + ' : No such file.');
+    if (! pa.existsSync(svbed)) throw new Error(svbed + ' : No such file.');
+    if (! pa.existsSync(coordbed)) throw new Error(svbed + ' : No such file.');
+
+    $s.shortcut('fasta', fasta);
+    $s.shortcut('bedStream', new LS(svbed, {trim: true}));
+
+    var sort = spawn('sortBed'); 
+    fs.createReadStream(coordbed).pipe(sort.stdin);
+    $s.shortcut('coordStream', new LS(sort.stdout, {trim: true}));
+  })
+  .catches(function(e) {
+    console.ered('[Error] : ' +  e.message);
+    showUsage();
+    this.terminate();
+  });
+
+  $j('json', function() {
+    var jsonfile = p.getOptions('json');
+    return JSON.parse(fs.readFileSync(jsonfile).toString());
+  })
+  .failSafe(null)
+  .post(function(v) {
+    $s.shortcut('json', v);
+  });
+
+  $j(function() {
+    $s.run();
+  }).afterAbove();
 
   $j.run();
 }

@@ -74,7 +74,6 @@ function tst() {
   })
   .after('randomCoords', 'svbedgen', 'fasta');
 
-
 }
 
 if (node) tst();
