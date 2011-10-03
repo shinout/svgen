@@ -22,7 +22,7 @@ function tst() {
     this.$ = {
       SV_NUM      : 100,
       SV_FILENAME : 'sv.fasta',
-      COORD_NUM   : 10,
+      COORD_NUM   : 50,
       DEBUG_MODE  : false 
     };
   });
@@ -38,10 +38,6 @@ function tst() {
     var options = {
       svlen   : 200,
       svdev   : 20,
-      delnum  : 0,
-      tranum  : 0,
-      insnum  : 0,
-      dupnum  : 0,
       snprate : 0,
       sv      : this.$.SV_NUM
     };
