@@ -13,3 +13,6 @@
 [submodule "lib/Junjo"]
 	path = lib/Junjo
 	url = github:shinout/Junjo.js.git
+[submodule "lib/ArrayEmitter"]
+	path = lib/ArrayEmitter
+	url = github:shinout/ArrayEmitter.git

@@ -6,10 +6,22 @@ const SVGen = require('./svgen');
 const cl    = require('./lib/Junjo/lib/termcolor').define()
 const pa    = require('path');
 const spawn = require('child_process').spawn;
-//cl.prod();
+const con   = {};
+
+function debugRun(fn) {
+  return function() {
+    if (!this.debug) return;
+    return fn.apply(this, arguments);
+  };
+}
+
+Object.keys(console).forEach(function(k) {
+  con[k] = debugRun(console[k]);
+});
 
 
-function svcoordinate() {
+function svcoordinate(debug) {
+  con.debug = debug;
   var $j = new Junjo();
 
   $j.inputs({
@@ -35,25 +47,27 @@ function svcoordinate() {
       var extra  = svinfo[5];
       svgen.register(rname, start, len, type, extra);
       return svgen;
-    });
+    })
+
+    bedStream.resume();
     //this.absorbError(bedStream);
   })
   .firstError('shift')
+  .out()
   .after('fasta', 'bedStream', 'json');
 
   $j('convert', function(coordStream, svgen) {
     this.$.n = 0;
 
-    console.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-    console.egreen("------------------------     START       ----------------------------------");
-    console.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+    con.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+    con.egreen("------------------------     START       ----------------------------------");
+    con.egreen("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
     this.absorb(coordStream, 'data', function(line, result, $f) {
       if (!line || line.charAt(0) == '#') return;
       var svinfo = line.split('\t');
       if (svinfo.length < 3) return;
 
       var rname  = svinfo[0];
-      //var regions = svgen.regions[rname];
       var regions = svgen.regions;
       var svpos = regions.SV;
       var snvs  = regions.SV;
@@ -63,20 +77,28 @@ function svcoordinate() {
         result = { offset: 0, diff: 0, outputs: [] };
       }
       if (result.outputs.length) {
-        // console.log(result.outputs)
         result.outputs.forEach(function(r) {
-          console.log([r.rname || rname, r.start, r.end, r.part, r.type || '*', r.pstart, r.pend, $f.$.n].join('\t'));
+          var data = [r.rname, r.start, r.end, r.part, r.type || '*', r.pstart, r.pend, $f.$.n ];
+          $j.emit('data', data);
+          con.ewhite(data.join('\t'));
         }, $f);
       }
       $f.$.n++;
       return getNewCoordinate(rname, start, end, regions, result.offset, result.diff);
     });
+    coordStream.resume();
   })
   .firstError('shift')
   .after('coordStream', 'svgen')
-  .next(function(out) {
-    //console.log(out);
-  });
+	.post(function(result) {
+     if (result.outputs.length) {
+        result.outputs.forEach(function(r) {
+          var data = [r.rname, r.start, r.end, r.part, r.type || '*', r.pstart, r.pend, this.$.n ];
+          $j.emit('data', data);
+          con.ewhite(data.join('\t'));
+        }, this);
+      }
+	});
 
   $j.catchesAbove(function(e, args) {
     console.ered('[Error] : ' +  e.message + ' in label: ' + cl.yellow(this.label));
@@ -89,9 +111,11 @@ function svcoordinate() {
 
 function main() {
   var p  = new AP().addOptions([]).addValueOptions([]).parse();
+  var debug = true; // TODO arg
 
   var $j = new Junjo();
-  var $s = svcoordinate();
+  var $s = svcoordinate(debug);
+
 
   function showUsage() {
     const cmd = p.getOptions('exename') || (process.argv[0] + ' ' + require('path').basename(process.argv[1]));
@@ -110,11 +134,11 @@ function main() {
     if (! pa.existsSync(coordbed)) throw new Error(svbed + ' : No such file.');
 
     $s.shortcut('fasta', fasta);
-    $s.shortcut('bedStream', new LS(svbed, {trim: true}));
+    $s.shortcut('bedStream', new LS(svbed, {trim: true, pause: true}));
 
     var sort = spawn('sortBed'); 
     fs.createReadStream(coordbed).pipe(sort.stdin);
-    $s.shortcut('coordStream', new LS(sort.stdout, {trim: true}));
+    $s.shortcut('coordStream', new LS(sort.stdout, {trim: true, pause: true}));
   })
   .catches(function(e) {
     console.ered('[Error] : ' +  e.message);
@@ -132,6 +156,9 @@ function main() {
   });
 
   $j(function() {
+    this.absorb($s, 'data', function(data) {
+      console.log(data.join('\t'));
+    });
     $s.run();
   }).afterAbove();
 
@@ -155,7 +182,7 @@ function getNewPos(rname, pos, regions, offset, diff) {
     if (svend >= pos) {
       break;
     }
-    console.eyellow(type, svstart, svend, (type == 'INS') ? extra.length : extra);
+    con.eyellow(type, svstart, svend, (type == 'INS') ? extra.length : extra);
 
     switch (type) {
       case 'DEL':
@@ -179,12 +206,12 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
   var results = [];
   var svlist = regions[rname].SV;
 
-  console.ecyan('--------------------------------------------------------------');
-  console.ecyan('Coordinates:',start, end);
+  con.ecyan('--------------------------------------------------------------');
+  con.ecyan('Coordinates:',start, end);
   var posinfo = getNewPos(rname, start, regions, offset, diff);
   offset = posinfo.offset;
   diff   = posinfo.diff;
-  console.epurple('diff:', diff, 'offset', offset);
+  con.epurple('diff:', diff, 'offset', offset);
 
   var n = offset, sv = svlist.get(n), part = 0, nextype = null;
   var A = start, B = end, D = diff;
@@ -221,23 +248,27 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
         switch (type) {
           case 'DEL':
             if (trans) {
-              console.eblue('-----------TRA-------------');
+              con.eblue('-----------TRA-------------');
               var trname = trans[0], tstart = trans[1];
               var D2 = getNewPos(trname, tstart, regions).pos - a;
               results.push({ rname: trname, start: A + D2, end: b + D2,  type: 'TRA', part: ++part, pstart: A, pend: b});
-              console.eblue('---------------------------');
+              con.eblue('---------------------------');
             }
             D -= b - a + 1;
             A = b + 1;
             nextype = 'LDEL';
             break;
+
           case 'INS':
             D += extra.length;
             break;
+
           case 'INV':
             results.push({ start: a + b - b + D, end: a + b - A + D, type: 'INV', part: ++part, pstart: A, pend: b});
             nextype = 'LINV';
             A = b + 1;
+						break;
+
           case 'DUP':
             var len = b - a + 1;
             part++;
@@ -290,11 +321,11 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
           case 'DEL':
             results.push({ start: A + D, end: a - 1 + D, type: 'RDEL', part: ++part, pstart: A, pend: a - 1});
             if (trans) {
-              console.eblue('-----------TRA-------------');
+              con.eblue('-----------TRA-------------');
               var trname = trans[0], tstart = trans[1];
               var D2 = getNewPos(trname, tstart, regions).pos - a;
               results.push({ rname: trname, start: a + D2, end: B + D2,  type: 'TRA', part: ++part, pstart: a, pend: B})
-              console.eblue('---------------------------');
+              con.eblue('---------------------------');
             }
             break;
           case 'INS':
@@ -304,7 +335,7 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
 
           case 'INV':
             results.push({ start: A + D, end: a + D - 1, type: 'RINV', part: ++part, pstart: A, pend: a - 1});
-            results.push({ start: a + b - B + D, end: a + b - a + D, type: 'INS', part: ++part, pstart: a, pend: B});
+            results.push({ start: a + b - B + D, end: a + b - a + D, type: 'INV', part: ++part, pstart: a, pend: B});
             break;
           case 'DUP':
             results.push({ start: A + D, end: B + D, part: ++part, pstart: A, pend: B});
@@ -330,16 +361,17 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
           case 'DEL':
             results.push({ start: A + D, end: a - 1 + D, type: 'RDEL', part: ++part, pstart: A, pend: a - 1});
             if (trans) {
-              console.eblue('-----------TRA-------------');
+              con.eblue('-----------TRA-------------');
               var trname = trans[0], tstart = trans[1];
               var D2 = getNewPos(trname, tstart, regions).pos - a;
               results.push({ rname: trname, start: a + D2, end: b + D2,  type: 'TRA', part: ++part, pstart: a, pend: b})
-              console.eblue('---------------------------');
+              con.eblue('---------------------------');
             }
             D -= b - a + 1;
             A = b + 1;
             nextype = 'LDEL';
             break;
+
           case 'INS':
             results.push({ start: A + D, end: a - 1 + D, type: 'RINS', part: ++part, pstart: A, pend: a - 1 });
             results.push({ start: a + D, end: a + D + extra.length, type: 'INS', part: ++part, pstart: a, pend: a});
@@ -354,6 +386,7 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
             A = b + 1;
             nextype = 'LINV';
             break;
+
           case 'DUP':
             var len = b - a + 1;
             results.push({ start: A + D, end: b + D, type: 'RDUP', part: ++part, pstart: A, pend: b});
@@ -369,20 +402,26 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
         break;
 
       default:
-        console.ered("INVALID PATTERN", type + str);
+        con.ered("INVALID PATTERN", type + str);
         break;
     }
 
     ar.unshift(cl.red(type), cl.red(type == 'INS' ? extra.length : extra || ''), cl.red(n + ' OVERLAPPING'));
-    console.ewhite.apply(console, ar);
+    con.ewhite.apply(con, ar);
     sv = svlist.get(++n);
   }
 
   if ( A != null & B != null) {
     results.push({ start: A + D, end: B + D, type: nextype, part: ++part, pstart: A, pend: B });
   }
+
+	results.forEach(function(result) {
+		if (!result.rname) result.rname = rname;
+	});
+
   return {offset: offset, diff: diff, outputs: results};
 }
 
+module.exports = svcoordinate;
 
 if (process.argv[1] === __filename) { main() }

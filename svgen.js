@@ -145,6 +145,7 @@ const listOptions = {
  * @param (Object) options: 
  *   (Object) json  : json data of fasta file.
  *   (Array) rnames : sequence ids to use.
+ *   (Function) callback : called when all sequences are written (emitted).
  *
  **/
 function SVGen(fasta, options) {
@@ -175,6 +176,8 @@ function SVGen(fasta, options) {
     this.rnames = Object.keys(this.fastas.result);
   }
 
+  this.callback = options.callback;
+
   this.regions = {};
 
   Object.keys(this.fastas.result).forEach(function(rname) {
@@ -182,6 +185,15 @@ function SVGen(fasta, options) {
     //this.regions[rname] = {SV: null, SNP: null};
   }, this);
 }
+
+Object.defineProperty(SVGen.prototype, 'callback', {
+  get: function() {
+    return this._callback || function() {};
+  },
+  set: function(v) {
+    if (typeof v == 'function') this._callback = v;
+  }
+});
 
 /**
  * register SV/SNP
@@ -307,10 +319,20 @@ SVGen.prototype.run = function(wstream) {
 
       fold.stdout.on('end', function() {
         wstream.write('\n');
+        wstream.end();
+      });
+
+      wstream.on('close', function() {
         wf.next();
       });
     };
   }));
+
+  wf.addCommands([
+    function() {
+      that.callback();
+    }
+  ]);
   wf.run();
 };
 
@@ -359,7 +381,7 @@ SVGen.valid = {
   },
 
   INV: function(fastas, rname, start, len, extra) {
-    return [start, start + len -1, 'DEL', null];
+    return [start, start + len -1, 'INV', null];
   },
 
   DUP: function(fastas, rname, start, len, extra) {
