@@ -8,6 +8,8 @@ const pa    = require('path');
 const spawn = require('child_process').spawn;
 const con   = {};
 
+const STRANDS = ['-', '+'];
+
 function debugRun(fn) {
   return function() {
     if (!this.debug) return;
@@ -69,7 +71,7 @@ function svcoordinate(debug) {
     this.absorb(coordStream, 'data', function(line, result, $f) {
       if (!line || line.charAt(0) == '#') return;
       var info = line.split('\t');
-      if (info.length < 3) return;
+      if (info.length < 4) return;
 
       var rname  = info[0];
       var regions = svgen.regions;
@@ -79,9 +81,11 @@ function svcoordinate(debug) {
       }
       var start  = Number(info[1]);
       var end    = Number(info[2]);
+      var strand = info[3];
 
       if (isNaN(start)) console.error(info);
 
+      info.shift();
       info.shift();
       info.shift();
       info.shift();
@@ -93,7 +97,8 @@ function svcoordinate(debug) {
 
       if (converted.outputs.length) {
         converted.outputs.forEach(function(r) {
-          var data = [r.rname, r.start, r.end, r.part, r.type || '*', r.pstart, r.pend ];
+          var newstrand = STRANDS[(strand == '+' ^ r.type == "INV") ? 1: 0]
+          var data = [r.rname, r.start, r.end, newstrand, r.part, r.type || '*', rname, r.pstart, r.pend, strand ];
           info.forEach(function(v) {
             data.push(v);
           });

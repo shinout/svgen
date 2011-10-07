@@ -67,7 +67,8 @@ function tst() {
     for (var i=0, l = this.$.COORD_NUM; i<l; i++) {
       var a = randomInt(endpos), b = a + randomInt(400);
       if (b > endpos) { i--; continue;}
-      ret.push([rname, a, b, "anno" + i]);
+      var strand = (Math.random() > 0.5) ? "+" : "-";
+      ret.push([rname, a, b, strand, "anno" + i]);
     }
 
     this.$.coords = ret.sort(function(a, b) {
@@ -115,16 +116,16 @@ function tst() {
 
     var coords = this.$.coords;
     bed.forEach(function(v) {
-      var rn = v[0], start = v[1], end = v[2];
-      var part = v[3], type = v[4], pstart= v[5], pend = v[6], partnum = v[7];
+      var rn = v[0], start = v[1], end = v[2], strand = v[3];
+      var part = v[4], type = v[5], prname = [6], pstart= v[7], pend = v[8], pstrand = v[9];
       if (type == 'INS') return;
 
-      var newSeq = svfastas.fetch(rname, start, end - start + 1);
-      var oriSeq = fastas.fetch(rname, pstart, pend - pstart + 1);
+      var newSeq = svfastas.fetch(rname, start, end - start + 1, strand == '-');
+      var oriSeq = fastas.fetch(rname, pstart, pend - pstart + 1, pstrand == '-');
 
-      if (type == 'INV') newSeq = dna.complStrand(newSeq, true);
+      //if (type == 'INV') newSeq = dna.complStrand(newSeq, true);
 
-      var bool = T.equal(newSeq, oriSeq, part, partnum);
+      var bool = T.equal(newSeq, oriSeq, part);
       if (!bool) {
         console.yellow("==========================================================");
         console.yellow(v);
