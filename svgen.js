@@ -230,7 +230,6 @@ SVGen.prototype.register = function(rname, start, len, type, extra, suspend) {
     }
 
     if (!SVGen.noNRegion(this.fastas, rname, start, len)) {
-      console.log(rname, start, len, type, extra);
       throw new Error('region of NNN...');
     }
 
