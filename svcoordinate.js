@@ -98,8 +98,12 @@ function svcoordinate(debug) {
       if (converted.outputs.length) {
         converted.outputs.forEach(function(r) {
           var newstrand = STRANDS[(strand == '+' ^ r.type == "INV") ? 1: 0]
-          var data = [r.rname, r.start, r.end, newstrand, r.part, r.type || '*', rname, r.pstart, r.pend, strand ];
+          var data = [r.rname, r.start, r.end, newstrand];
           info.forEach(function(v) {
+            data.push(v);
+          });
+
+          [r.part, r.type || '*', rname, r.pstart, r.pend, strand ].forEach(function(v) {
             data.push(v);
           });
           $j.emit('data', data);

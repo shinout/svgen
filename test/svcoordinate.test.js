@@ -116,8 +116,9 @@ function tst() {
 
     var coords = this.$.coords;
     bed.forEach(function(v) {
+      var l = v.length - 1;
       var rn = v[0], start = v[1], end = v[2], strand = v[3];
-      var part = v[4], type = v[5], prname = [6], pstart= v[7], pend = v[8], pstrand = v[9];
+      var part = [l-5], type = v[l-4], prname = v[l-3], pstart= v[l-2], pend = v[l-1], pstrand = v[l];
       if (type == 'INS') return;
 
       var newSeq = svfastas.fetch(rname, start, end - start + 1, strand == '-');
