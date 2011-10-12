@@ -124,7 +124,7 @@ function svcoordinate(debug) {
     this.terminate();
   });
 
-  return $j.prepare();
+  return $j;
 }
 
 function main() {
