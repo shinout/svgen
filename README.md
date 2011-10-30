@@ -1,43 +1,26 @@
-SVGenerator 1.1.0
+svgen
 ==========
 generate DNA Structural Variation from FASTA format (Node.js)
-
-Change Log
-----------------
-* [0.1.0]: release
-* [1.0.0]: support multi fasta
-* [1.1.0]: support rnames option
 
 Overview
 ----------------
 ### Installation ###
-    git clone git://github.com/shinout/svgen.git
-    cd svgen
-    git submodule init
-    git submodule update
+    npm install svgen
 
 ### Usage ###
-#### write JavaScript ####
-    var SVGen = require('/path/to/svgen.js');
-    var svgen = new SVGen('/path/to/single_fasta.fa');
-    // rname, start, len, type, extra
-    svgen.register('chr5', 5400001, 320, 'DEL');         // deletion at chr5:5400001  (length: 320bp)
-    svgen.register('chr22', 123499, 200, 'INS', sg.getRandomFragment(200));          // insertion at left side of chr22:123499 with a random sequence (length: 200bp)
-    svgen.register('chrX', 9876543, 624, 'INV');         // inversion at chrX:9876543 (length: 625bp)
-    svgen.register('chr2', 2286120, 30, 'DUP', 11);         // tandem duplictation at chr2:2286120 (length: 625bp)
-    svgen.register('chr9', 34091822, 300, 'TRA', 'chr1:91152048');         // translocation at 34091822 from chr1:91152048 (length:300bp)
-    svgen.run(); // then result will come up to your STDOUT
-
 #### command line ####
     # get information sv and snp randomly generated.
-    node svbedgen.js sample.fasta > sv.bed
+    svbedgen sample.fasta > sv.bed
 
     # get fasta with SV and SNP designated in a bed file
-    node svgen.js sv.bed sample.fasta  > chr11_sv.fasta
+    svgen sv.bed sample.fasta  > chr11_sv.fasta
+
+    # get converted coordinates caused by SVs
+    svcoordinate sample.fasta sv.bed coordinate.bed > new_coordinate.bed
 
     **** svbedgen ****
     [synopsis]
-      node svbedgen.js <fasta file>
+      svbedgen <fasta file>
     [options]
       ** length: the lengths of SVs.
       --svlen <int> mean length of SVs. default:1500
@@ -81,9 +64,16 @@ Overview
 
     **** svgen ****
     [usage]
-      node svgen.js <bed file> <fasta file>
+      svgen <bed file> <fasta file>
     [options]
       --rnames|-r <sequence id1>[,sequence_id2,...]   sequence ids to use. default: null (use all rnames in a fasta file.)
       --json|-j <json file>  fasta summary file to shortcut calculation.
     [bed file columns]
       rname start-position  end-position  SVtype(DEL|INS|INV|DUP|TRA|SNP) length  extra-info
+
+    **** svcoordinate ****
+    [usage]
+      svcoordinate <fasta file> <sv bed file> <coordinate bed file>
+    [options]
+      --nosort : not using sort toward coordinate bed file
+      --verbose|-v: verbose logging

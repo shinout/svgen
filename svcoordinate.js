@@ -1,9 +1,10 @@
+#!/usr/bin/env node
 const fs    = require('fs');
 const AP    = require('argparser');
 const LS    = require('linestream');
-const Junjo = require('./lib/Junjo/Junjo');
+const Junjo = require('junjo');
 const SVGen = require('./svgen');
-const cl    = require('./lib/Junjo/lib/termcolor').define()
+const cl    = require('termcolor').define()
 const pa    = require('path');
 const spawn = require('child_process').spawn;
 const con   = {};
@@ -25,6 +26,7 @@ Object.keys(console).forEach(function(k) {
 function svcoordinate(debug) {
   con.debug = debug;
   var $j = new Junjo();
+  $j.noTimeout();
 
   $j.timeout = 300;
 
@@ -71,7 +73,7 @@ function svcoordinate(debug) {
     this.absorb(coordStream, 'data', function(line, result, $f) {
       if (!line || line.charAt(0) == '#') return;
       var info = line.split('\t');
-      if (info.length < 4) return;
+      if (info.length < 5) return;
 
       var rname  = info[0];
       var regions = svgen.regions;
@@ -82,9 +84,12 @@ function svcoordinate(debug) {
       var start  = Number(info[1]);
       var end    = Number(info[2]);
       var strand = info[3];
+      var ori_id = info[4];
 
       if (isNaN(start)) console.error(info);
 
+      // rname,start,end,strand,id
+      info.shift();
       info.shift();
       info.shift();
       info.shift();
@@ -93,13 +98,14 @@ function svcoordinate(debug) {
       if (!result || result.rname != rname) {
         result = { offset: 0, diff: 0, outputs: [] };
       }
-      var converted= getNewCoordinate(rname, start, end, regions, result.offset, result.diff);
+      var converted = getNewCoordinate(rname, start, end, regions, result.offset, result.diff);
 
       if (converted.outputs.length) {
         var lastpart = converted.outputs[converted.outputs.length - 1].part;
-        converted.outputs.forEach(function(r) {
+        converted.outputs.forEach(function(r, k) {
+          var id = ori_id + "_" + (k+1);
           var newstrand = STRANDS[(strand == '+' ^ r.type == "INV") ? 1: 0]
-          var data = [r.rname, r.start, r.end, newstrand];
+          var data = [r.rname, r.start, r.end, newstrand, id];
           info.forEach(function(v) {
             data.push(v);
           });
@@ -133,6 +139,7 @@ function main() {
   var debug = p.getOptions('v', 'verbose'); // TODO arg
 
   var $j = new Junjo();
+  $j.noTimeout();
   $j.timeout = 300;
   var $s = svcoordinate(debug);
 
@@ -239,7 +246,7 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
   var svlist = regions[rname].SV;
 
   con.ecyan('--------------------------------------------------------------');
-  con.ecyan('Coordinates:',start, end);
+  con.ecyan('Coordinates:', start, end);
   var posinfo = getNewPos(rname, start, regions, offset, diff);
   offset = posinfo.offset;
   diff   = posinfo.diff;
@@ -308,7 +315,7 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
               results.push({ start: A + D, end: b + D, type: 'DUP', part: part, pstart: A, pend: b});
               D += len;
             }
-            nextype = 'LDUP';
+            nextype = '*';
             // A = b + 1;
             break;
         }
@@ -323,6 +330,13 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
         switch (type) {
           case 'DEL':
             // totally deleted
+            if (!trans) break;
+
+            con.eblue('-----------TRA-------------');
+            var trname = trans[0], tstart = trans[1];
+            var D2 = getNewPos(trname, tstart, regions).pos - a;
+            results.push({ rname: trname, start: A + D2, end: B + D2,  type: 'ATRA', part: ++part, pstart: A, pend: B});
+            con.eblue('---------------------------');
             break;
           case 'INS':
             // impossible
@@ -332,11 +346,11 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
             results.push({ start: a + b - B + D, end: a + b - A + D, type: 'INV', part: ++part, pstart: A, pend: B});
             break;
           case 'DUP':
-            results.push({ start: A + D, end: B + D, part: ++part, pstart: A, pend: B });
+            results.push({ start: A + D, end: B + D, part: ++part, type: "*", pstart: A, pend: B });
             var len = b - a + 1;
             for (var i=0; i<extra-1; i++) {
               D += len;
-              results.push({ start: A + D, end: B + D, type: 'DUP', part: part, pstart: A, pend: B});
+              results.push({ start: A + D, end: B + D, type: 'ADUP', part: part, pstart: A, pend: B});
             }
             break;
         }
@@ -370,7 +384,7 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
             results.push({ start: a + b - B + D, end: a + b - a + D, type: 'INV', part: ++part, pstart: a, pend: B});
             break;
           case 'DUP':
-            results.push({ start: A + D, end: B + D, part: ++part, pstart: A, pend: B});
+            results.push({ start: A + D, end: B + D, part: ++part, type: "*", pstart: A, pend: B});
             var len = b - a + 1;
             part++;
             for (var i=0; i<extra-1; i++) {
@@ -455,5 +469,4 @@ function getNewCoordinate(rname, start, end, regions, offset, diff) {
 }
 
 module.exports = svcoordinate;
-
-if (process.argv[1] === __filename) { main() }
+if (process.argv[1].match('/([^/]+?)(\.js)?$')[1] == __filename.match('/([^/]+?)(\.js)?$')[1]) main();

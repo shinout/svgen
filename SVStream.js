@@ -8,7 +8,7 @@
  *
  ***/
 const EventEmitter = require('events').EventEmitter;
-const dna          = require('./lib/dna');
+const dna          = require('dna');
 const BASES        = ['A', 'C', 'G', 'T'];
 
 /* constructor */
@@ -108,56 +108,4 @@ SVStream.sv = function(seq, type, extra) {
 };
 
 
-/**
- * test
- **/
-function test() {
-  const WF     = require('./lib/workflow/wflight');
-  const wf     = new WF();
-  const seq    = 'abcdefghijklmnopqrstuvwxyz1234567890';
-  const answer = 'dINSERTEDefThijasrqponmlkuvwxyz1234123412341234123412341234123412341234567890';
-
-  wf.addCommands([1, 2, 4, 8].map(function(num) {
-    return function() {
-      var len  = seq.length;
-      var l    = Math.floor(len / num);
-      var seqs = [];
-      var st   = 0;
-      for (var i=0; i<num-1; i++) {
-        seqs.push(seq.substr(st, l));
-        st += l;
-      }
-      seqs.push(seq.substr(st));
-
-      const svstream = new SVStream([
-        [1, 3, 'DEL', null],
-        [5, 5, 'INS', 'INSERTED'],
-        [7, 7, 'SNP', 1],
-        [11, 20, 'INV', null],
-        [27, 30, 'DUP', 10],
-      ]);
-
-      var result = '';
-      svstream.on('data', function(data) {
-        result += data;
-      });
-
-      svstream.on('end', function() {
-        console.log(result);
-        console.log(result == answer);
-        wf.next();
-      });
-
-      seqs.forEach(function(s) {
-        svstream.write(s);
-      });
-
-      svstream.end();
-    };
-  }));
-
-  wf.run();
-}
-
 module.exports = SVStream;
-if (__filename == process.argv[1]) { test(); }

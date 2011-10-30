@@ -1,24 +1,20 @@
+#!/usr/bin/env node
 const fs          = require('fs');
-const ArgParser   = require('./lib/argparser/ArgParser');
-const nrand       = require('./lib/normal_random');
-const XORShift    = require('./lib/xorshift');
-const random      = new XORShift(new Date().getTime(), true); // function
+const ArgParser   = require('argparser');
+const nrand       = require('random-tools').normalRandom;
+const randomInt   = require('random-tools').randomInt;
+const WSelection  = require('random-tools').WeightedSelection;
 const SVGen       = require('./svgen');
-const FASTAReader = require('./lib/FASTAReader/FASTAReader');
-const dna         = require('./lib/dna');
-const cl          = require('./lib/Junjo/lib/termcolor').define();
-const WSelection  = require('./lib/WeightedSelection');
+const FASTAReader = require('fastareader');
+const dna         = require('dna');
+const cl          = require('termcolor').define();
 
 const numberize = function(v, _default) {
   return (v === false || v === null || isNaN(Number(v))) ? _default : Number(v);
 };
 
-const randomInt = function(max) {
-  return Math.floor(random() * max);
-};
-
-
 function main() {
+
   const p = new ArgParser().addOptions(['noinfo']).addValueOptions([
     'snprate', 'sv', 'rnames', 'svlen', 'svdev', 'json', 'exename',
     'inslen', 'insdev', 'dellen', 'deldev', 'invlen', 'invdev', 
@@ -92,7 +88,7 @@ function main() {
     showUsage();
     process.exit();
   }
-
+  
   if (! require('path').existsSync(fastafile)) {
     console.error(fastafile + ': No such file.');
     process.exit();
@@ -146,22 +142,18 @@ function main() {
 
 
   // weighted selection of rnames
-  const rselect = new WSelection((function(){
-    var ret = {};
-    rnames.forEach(function(rname) {
+  const rselect = new WSelection(
+    rnames.reduce(function(ret, rname) {
       ret[rname] = fastas.result[rname].getEndPos();
-    });
-    return ret;
-  })() , random); 
+      return ret;
+    }, {}), "xorshift"); 
 
   // weighted selection of rnames for translocation, uses all sequences in the fasta file.
-  const rselect_trans = new WSelection((function(){
-    var ret = {};
-    Object.keys(fastas.result).forEach(function(rname) {
+  const rselect_trans = new WSelection(
+    Object.keys(fastas.result).reduce(function(ret, rname) {
       ret[rname] = fastas.result[rname].getEndPos();
-    });
-    return ret;
-  })() , random); 
+      return ret;
+    }, {}), "xorshift"); 
 
   function showlog() {
     const log = (p.getOptions('noinfo')) ? console.error : console.log;
@@ -184,7 +176,7 @@ function main() {
     INV : (lens.INV > 0) ? nums.INV : 0, 
     DUP : (lens.DUP > 0) ? nums.DUP : 0, 
     TRA : (lens.TRA > 0) ? nums.TRA : 0
-  }, random);
+  }, "xorshift");
 
   // frequency of SV events for each rname
   const sv_counts = {};
@@ -206,13 +198,13 @@ function main() {
 
     for (var i=0, e=0; i<cnt && e<LIMIT; i++) {
       var type  = tselect.random();
-      var len   = Math.floor(nrand(lens[type], devs[type], random) + 0.5);
+      var len   = Math.floor(nrand(lens[type], devs[type], "xorshift") + 0.5);
       if (len < 1) {
         e++;
         i--;
         continue;
       }
-      var start = randomInt(endpos - len -1);
+      var start = randomInt(endpos - len + 1, 1);
       var extra = (function() {
         switch (type) {
         case 'INS':
@@ -223,7 +215,7 @@ function main() {
           do {
             rn = rselect_trans.random();
             fa = fastas.result[rn];
-            st = randomInt(fa.getEndPos() - len - 1);
+            st = randomInt(fa.getEndPos() - len + 1, 1);
             extra_canditate = rn + ':' + st;
           } while (
             ! SVGen.validRange(fastas, rn, st, len) ||
@@ -232,7 +224,7 @@ function main() {
 
           return extra_canditate;
         case 'DUP':
-          return Math.max(Math.floor(nrand(duprep, duprdev, random)), 2);
+          return Math.max(Math.floor(nrand(duprep, duprdev, "xorshift")), 2);
         default:
           return '*';
         }
@@ -285,7 +277,7 @@ function main() {
     for (var i=0, e=0; i<cnt && e<elimit; i++) {
       var type  = 'SNP';
       var extra = snpselect.random(); 
-      var pos   = randomInt(endpos -1) + 1;
+      var pos   = randomInt(endpos, 1);
 
       if (!snps[pos]) {
         snps[pos] = 1;
@@ -317,4 +309,4 @@ const output = function(type, pos, rname, len, extra) {
   console.log([rname, pos, end, type, len, extra].join('\t'));
 }
 
-if (process.argv[1] === __filename) { main(); }
+if (process.argv[1].match('/([^/]+?)(\.js)?$')[1] == __filename.match('/([^/]+?)(\.js)?$')[1]) main();

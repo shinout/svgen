@@ -1,13 +1,11 @@
+#!/usr/bin/env node
 const SVStream    = require('./SVStream');
-const FASTAReader = require('./lib/FASTAReader/FASTAReader');
-const dna         = require('./lib/dna');
-const nrand       = require('./lib/normal_random');
-const XORShift    = require('./lib/xorshift');
-const random      = new XORShift(new Date().getTime(), true); // function
-const SortedList  = require('./lib/SortedList');
-const AP          = require('./lib/argparser/ArgParser');
-const LS          = require('./lib/LineStream/LineStream');
-const Flow        = require('./lib/workflow/wflight');
+const FASTAReader = require('fastareader');
+const dna         = require('dna');
+const SortedList  = require('sortedlist');
+const AP          = require('argparser');
+const LS          = require('linestream');
+const Junjo       = require('junjo');
 const fs          = require('fs');
 const pa          = require('path');
 const spawn       = require('child_process').spawn;
@@ -104,6 +102,7 @@ function main() {
 
   /* run */
   bedstream.on('end', function() {
+    //console.log(svgen.getRegions("chr1"));
     svgen.run();
   });
 }
@@ -262,6 +261,10 @@ SVGen.prototype.register = function(rname, start, len, type, extra, suspend) {
   }
 };
 
+SVGen.prototype.getRegions = function(rname, type) {
+  if (!type) type = "SV";
+  return this.regions[rname][type];
+};
 
 /**
  * get a sequence with SV in FASTA format.
@@ -271,7 +274,6 @@ SVGen.prototype.register = function(rname, start, len, type, extra, suspend) {
  **/
 SVGen.prototype.run = function(wstream) {
   const rnames = this.rnames;
-  const wf     = new Flow();
   wstream      = (function() {
     if (typeof wstream == 'string') { return fs.createWriteStream(wstream); }
     return  (wstream &&
@@ -284,21 +286,23 @@ SVGen.prototype.run = function(wstream) {
       : process.stdout; 
   })();
 
-
   const that = this;
-  wf.addCommands(rnames.map(function(rname) {
-    return function() {
-      const fasta       = that.fastas.result[rname];
-      const rstream     = fs.createReadStream(that.fastafile, {
+
+  var $j = new Junjo();
+
+  rnames.forEach(function(rname) {
+    $j(function() {
+      const fasta   = that.fastas.result[rname];
+      const rstream = fs.createReadStream(that.fastafile, {
         flags      : 'r',
         encoding   : 'utf-8',
         bufferSize : 40960,
         start      : fasta.getStartIndex(),
         end        : fasta.getEndIndex() -1
       });
-      const snpstream   = new SVStream(that.regions[rname].SNP.toArray());
-      const svstream    = new SVStream(that.regions[rname].SV.toArray());
-      const fold        = spawn('fold', ['-w', fasta.linelen]);
+      const snpstream = new SVStream(that.regions[rname].SNP.toArray());
+      const svstream  = new SVStream(that.regions[rname].SV.toArray());
+      const fold      = spawn('fold', ['-w', fasta.linelen]);
 
       snpstream.pipe(svstream);
       svstream.pipe(fold.stdin);
@@ -321,18 +325,14 @@ SVGen.prototype.run = function(wstream) {
         wstream.end();
       });
 
-      wstream.on('close', function() {
-        wf.next();
-      });
-    };
-  }));
+      wstream.on('close', this.cb);
 
-  wf.addCommands([
-    function() {
-      that.callback();
-    }
-  ]);
-  wf.run();
+    }).after();
+  });
+
+  $j.on("end", that.callback);
+
+  $j.run();
 };
 
 /*** static functions ***/
@@ -410,7 +410,5 @@ SVGen.valid = {
   }
 };
 
-SVGen.getRandomFragment = dna.getRandomFragment;
-SVGen.version = "1.1.0";
 module.exports = SVGen;
-if (__filename == process.argv[1]) { main(); }
+if (process.argv[1].match('/([^/]+?)(\.js)?$')[1] == __filename.match('/([^/]+?)(\.js)?$')[1]) main();

@@ -1,18 +1,14 @@
-if (typeof global != 'undefined') require('../lib/Junjo/test/load.test').load(global);
-
+const T           = require('./load.test');
 const spawn       = require('child_process').spawn;
 const exec        = require('child_process').exec;
-const FR          = require('../lib/FASTAReader/FASTAReader');
-const random      = new require('../lib/xorshift')(new Date().getTime(), true);
-const ArrayStream = require('../lib/ArrayEmitter');
+const FR          = require('fastareader');
+const randomInt   = require('random-tools').randomInt;
+const ArrayStream = require('arrayemitter');
+const Junjo       = require('junjo');
 const $svcoord    = require('../svcoordinate');
 const SVGen       = require('../svgen');
 const fs          = require('fs');
-const dna         = require('../lib/dna');
-
-function randomInt(max) {
-  return Math.floor(random() * max);
-}
+const dna         = require('dna');
 
 function tst() {
   var $j = new Junjo({run : true});
@@ -65,9 +61,9 @@ function tst() {
     var endpos = fasta.getEndPos();
     var ret = [];
     for (var i=0, l = this.$.COORD_NUM; i<l; i++) {
-      var a = randomInt(endpos), b = a + randomInt(400);
+      var a = randomInt(endpos, 1, "xorshift"), b = a + randomInt(400, 1, "xorshift");
       if (b > endpos) { i--; continue;}
-      var strand = (Math.random() > 0.5) ? "+" : "-";
+      var strand = (randomInt(1,0,"xorshift")) ? "+" : "-";
       ret.push([rname, a, b, strand, "anno" + i]);
     }
 
@@ -126,12 +122,13 @@ function tst() {
 
       //if (type == 'INV') newSeq = dna.complStrand(newSeq, true);
 
+      if (type == "TRA") console.cyan(rname, start, pstart, end, pend, newSeq, oriSeq, part, type)
       var bool = T.equal(newSeq, oriSeq, part);
       if (!bool) {
         console.yellow("==========================================================");
         console.yellow(v);
-        console.yellow(newSeq);
-        console.yellow(oriSeq);
+        console.yellow("new", newSeq);
+        console.yellow("ori", oriSeq);
         console.yellow("==========================================================");
       }
     });
@@ -147,4 +144,4 @@ function tst() {
 
 }
 
-if (node) tst();
+tst();
