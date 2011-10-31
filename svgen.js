@@ -274,7 +274,7 @@ SVGen.prototype.getRegions = function(rname, type) {
  **/
 SVGen.prototype.run = function(wstream) {
   const rnames = this.rnames;
-  wstream      = (function() {
+  wstream = (function() {
     if (typeof wstream == 'string') { return fs.createWriteStream(wstream); }
     return  (wstream &&
            typeof wstream == 'object' &&
@@ -282,53 +282,64 @@ SVGen.prototype.run = function(wstream) {
            typeof wstream.end == 'function' &&
            typeof wstream.on == 'function'
           )
-      ? wstream 
-      : process.stdout; 
+      ? wstream
+      : process.stdout;
   })();
 
   const that = this;
 
   var $j = new Junjo();
 
-  rnames.forEach(function(rname) {
-    $j(function() {
-      const fasta   = that.fastas.result[rname];
-      const rstream = fs.createReadStream(that.fastafile, {
+  rnames.forEach(function(rname, num) {
+    $j("sv." + rname, function() {
+      var fasta   = that.fastas.result[rname];
+      var rstream = fs.createReadStream(that.fastafile, {
         flags      : 'r',
         encoding   : 'utf-8',
         bufferSize : 40960,
         start      : fasta.getStartIndex(),
         end        : fasta.getEndIndex() -1
       });
-      const snpstream = new SVStream(that.regions[rname].SNP.toArray());
-      const svstream  = new SVStream(that.regions[rname].SV.toArray());
-      const fold      = spawn('fold', ['-w', fasta.linelen]);
+      var snpstream = new SVStream(that.regions[rname].SNP.toArray());
+      var svstream  = new SVStream(that.regions[rname].SV.toArray());
+      var fold      = spawn('fold', ['-w', fasta.linelen]);
+
+      // rstream -> snpstream -> svstream -> fold.stdin -> wstream
 
       snpstream.pipe(svstream);
       svstream.pipe(fold.stdin);
 
-      wstream.write('>' + rname + '\n');
+
+      rstream.setEncoding("utf8");
       rstream.on('data', function(data) {
-        snpstream.write(data.toString().split('\n').join(''));
+        snpstream.write(data.split('\n').join(''));
       });
 
       rstream.on('end', function() {
         snpstream.end();
       });
 
-      fold.stdout.on('data', function(data) {
-        wstream.write(data.toString());
+      fold.stdout.setEncoding('utf8');
+
+      this.absorb(fold.stdout, "data", function(data) {
+        wstream.write(data);
       });
 
-      fold.stdout.on('end', function() {
+      // after previous fasta, put LF
+      if (num) {
         wstream.write('\n');
-        wstream.end();
-      });
+      }
 
-      wstream.on('close', this.cb);
+      wstream.write('>' + rname + '\n');
 
     }).after();
   });
+
+  $j(function() {
+    wstream.end();
+    wstream.on('close', this.cb);
+  })
+  .after();
 
   $j.on("end", that.callback);
 
