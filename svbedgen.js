@@ -258,7 +258,7 @@ function main() {
 
   // frequency of SNP events for each rname
   const snp_counts  = {};
-  const snp_total   = rselect.total() / snprate;
+  const snp_total   = rselect.total / snprate;
   // var rname_rand; // the same variable exists above.
   for (var i=0; i<snp_total; i++) {
     rname_rand = rselect.random();
