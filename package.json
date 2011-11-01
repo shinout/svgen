@@ -1,5 +1,5 @@
 { "name": "svgen"
-, "version": "0.1.2"
+, "version": "0.1.2-1"
 , "main": "lib/svgen"
 , "bin":
   { "svgen" : "./svgen.js"

@@ -288,7 +288,7 @@ SVGen.prototype.run = function(wstream) {
 
   const that = this;
 
-  var $j = new Junjo();
+  var $j = new Junjo({noTimeout: true});
 
   rnames.forEach(function(rname, num) {
     $j("sv." + rname, function() {
