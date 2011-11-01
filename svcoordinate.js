@@ -25,10 +25,7 @@ Object.keys(console).forEach(function(k) {
 
 function svcoordinate(debug) {
   con.debug = debug;
-  var $j = new Junjo();
-  $j.noTimeout();
-
-  $j.timeout = 300;
+  var $j = new Junjo({noTimeout: true});
 
   $j.inputs({
     fasta       : 0,
@@ -138,9 +135,7 @@ function main() {
   var p  = new AP().addOptions(['v', 'verbose', 'nosort']).addValueOptions(['json']).parse();
   var debug = p.getOptions('v', 'verbose'); // TODO arg
 
-  var $j = new Junjo();
-  $j.noTimeout();
-  $j.timeout = 300;
+  var $j = new Junjo({noTimeout: true});
   var $s = svcoordinate(debug);
 
 
