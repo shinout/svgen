@@ -16,6 +16,9 @@
   , "sortedlist" : ">=0.0.1"
   , "junjo" : ">=0.2.0"
   }
+, "dependencies":
+  { "arraystream" : ">=0.0.1"
+  }
 
 , "description": "generate DNA sequence with SNV and Structural Variations from FASTA format"
 , "tags": ["DNA", "SNP", "SNV", "bioinformatics", "Structural Variation", "simulator", "FASTA"]
